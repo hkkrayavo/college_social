@@ -1,0 +1,110 @@
+College Social Media Application � Functional Overview
+This application is designed as an admin-centric social media platform for a college ecosystem. It connects students, faculty, the principal, and management through controlled and moderated communication.
+
+User Types and Roles
+The application supports two types of users:
+    � Admin
+    � User
+Users include college students, faculty members, the principal, and management staff.
+Some faculty members are assigned the Admin role with additional privileges.
+
+Group and Community Management
+Admins have complete control over creating and managing groups within the application.
+Group Types
+Admins can create, update, and delete Group Types, each having:
+    � A group type label
+    � A short description
+Groups
+Admins can create, update, and delete Groups by:
+    � Providing a group name
+    � Adding a description
+    � Selecting a group type
+A user can be a member of multiple groups, and group allocation is managed only by admins.
+
+User Registration and Approval
+User Self Signup
+Users can sign up by providing:
+    � Name
+    � Mobile number
+    � Profile picture
+    � Email ID (optional)
+After signup:
+    � The user cannot log in until the admin approves the request
+    � Once approved, the user receives a success notification via SMS
+    � Only approved users can access the application
+Admin-Created User
+Admins can directly create users by entering:
+    � Name
+    � Mobile number
+    � Email ID (optional)
+In this case:
+    � The user is auto-approved
+    � The user receives an SMS notification stating that the admin has added them
+    � The user can log in immediately using their mobile number
+
+Login and First-Time Access
+    � Login is done using mobile number and OTP for both admins and users
+    � Passwords are not used
+    � Approved users must upload a profile picture during their first login
+    � Profile picture upload is mandatory before accessing other features
+
+Posting Content
+Admin Posts
+Admins can create posts containing:
+    � Text
+    � Images
+    � Videos
+    � Any combination of the above
+While posting, admins can:
+    � Select multiple groups to display the post
+    � Optionally make posts public
+User Posts
+Users can create posts with:
+    � Text
+    � Images
+    � Videos
+    � Any combination
+User posts are initially marked as pending approval.
+Users can view all their posts along with their current status:
+    � Pending
+    � Approved
+    � Rejected
+
+Post Moderation by Admin
+Admins review all posts submitted by users.
+    � Approval
+        ? Admin must allocate the post to one or more groups
+    � Rejection
+        ? Admin must provide a clear reason for rejection
+Rejected posts will display the rejection reason to the user.
+
+Albums and Events
+Admins can create Albums for events and activities.
+Each album includes:
+    � Event name
+    � Event date
+    � Photos and videos
+Albums can be shared with multiple groups, allowing only relevant users to view the content.
+
+Feed Visibility
+Users can view:
+    � Posts shared with the groups they belong to
+    � Albums shared with their groups
+    � Public posts
+Content visibility is strictly controlled based on group allocation.
+
+Likes and Comments
+Users can:
+    � Like posts
+    � Comment on posts
+    � Like other users� comments
+    � View all comments and likes on posts
+
+Overall Experience
+The platform ensures:
+    � Controlled communication through admin moderation
+    � Group-based content visibility
+    � Secure login using OTP
+    � Clear approval workflows for users and content
+This makes the application suitable for official college communication, announcements, event sharing, and internal engagement while maintaining discipline and privacy.
+

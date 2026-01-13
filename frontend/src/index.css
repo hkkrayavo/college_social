@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #1E3A5F;
+  --color-navy-dark: #162C48;
+  --color-gold: #F59E0B;
+  --color-gold-dark: #D97706;
+  --color-cream: #FEF3C7;
+  --font-serif: "Libre Baskerville", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* Primary button - Gold with Navy text */
+.btn-gold {
+  @apply bg-gold text-navy px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-gold-dark hover:shadow-lg;
+}
+
+/* Primary action button - Navy with white text */
+.btn-primary {
+  @apply bg-navy text-white px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-navy-dark hover:shadow-lg;
+}
+
+/* Secondary button - Navy with white text */
+.btn-navy {
+  @apply bg-navy text-white px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-navy-dark hover:shadow-lg;
+}
+
+/* Outline buttons */
+.btn-outline-navy {
+  @apply bg-transparent text-navy border-2 border-navy px-6 py-2 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-navy hover:text-white;
+}
+
+.btn-outline-white {
+  @apply bg-transparent text-white border-2 border-white/40 px-6 py-2 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-white/10 hover:border-white;
+}
+
+/* Legacy button classes - expanded for Tailwind v4 compatibility */
+.btn-green {
+  @apply bg-navy text-white px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-navy-dark hover:shadow-lg;
+}
+
+.btn-teal {
+  @apply bg-gold text-navy px-6 py-2.5 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-gold-dark hover:shadow-lg;
+}
+
+.btn-outline {
+  @apply bg-transparent text-navy border-2 border-navy px-6 py-2 rounded-lg font-semibold text-sm cursor-pointer;
+  @apply transition-all duration-200 hover:bg-navy hover:text-white;
+}
+
+/* Hero section - Solid Navy */
+.hero-gradient {
+  @apply bg-navy;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+}
+
+/* Typography - Serif for headings */
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+}
+
+/* Base styles */
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply bg-white text-navy;
+}

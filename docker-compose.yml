@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  db:
+    image: mysql:8.0
+    container_name: social_media_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      # MYSQL_USER/PASSWORD removed because we are using root
+
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app_network
+
+  # Backend API Service
+  backend:
+    build: ./backend
+    container_name: social_media_backend
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=db
+      - CLIENT_URL=http://localhost
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET}
+      # Email / AWS Secrets (Add others as needed from your .env)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      # DigitalOcean Spaces variables will be loaded from env_file (./backend/.env)
+
+    depends_on:
+      - db
+    networks:
+      - app_network
+
+  # Frontend Web Service
+  frontend:
+    build: ./frontend
+    container_name: social_media_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+volumes:
+  db_data:
+
+
+networks:
+  app_network:
+    driver: bridge
