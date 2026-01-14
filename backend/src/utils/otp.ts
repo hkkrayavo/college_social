@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+// import crypto from 'crypto' // Commented out while OTP is hardcoded
 
 // Generate a 4-digit OTP
 // HARDCODED FOR TESTING - Change back before production!
