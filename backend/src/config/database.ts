@@ -32,10 +32,10 @@ export async function connectDatabase(): Promise<void> {
         // Sync models in development (auto-create tables)
         // Note: alter:true disabled - database has too many indexes from repeated syncs
         // Use migrations for schema changes instead
-        if (env.isDev) {
-            await sequelize.sync({ alter: false })
-            console.log('✅ Database connection ready')
-        }
+        // Sync models (auto-create tables if they don't exist)
+        // In a real production app, use migrations. For now, we sync to ensure tables exist.
+        await sequelize.sync({ alter: false })
+        console.log('✅ Database synchronized')
     } catch (error) {
         console.error('❌ Unable to connect to database:', error)
         process.exit(1)
