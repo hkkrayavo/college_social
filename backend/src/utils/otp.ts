@@ -1,8 +1,10 @@
 import crypto from 'crypto'
 
 // Generate a 4-digit OTP
+// HARDCODED FOR TESTING - Change back before production!
 export function generateOtp(): string {
-    return crypto.randomInt(1000, 9999).toString()
+    return '1234'
+    // return crypto.randomInt(1000, 9999).toString()
 }
 
 // Calculate OTP expiry time (5 minutes from now)
