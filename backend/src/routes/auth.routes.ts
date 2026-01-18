@@ -1,8 +1,11 @@
 import { Router } from 'express'
 import { otpLimiter, authLimiter } from '../middleware/index.js'
-import { requestOtp, verifyOtp, refreshToken, logout } from '../controllers/auth.controller.js'
+import { checkAccountStatus, requestOtp, verifyOtp, refreshToken, logout } from '../controllers/auth.controller.js'
 
 const router = Router()
+
+// POST /api/auth/check-status - Check account status before OTP
+router.post('/check-status', authLimiter, checkAccountStatus)
 
 // POST /api/auth/request-otp - Request OTP for login
 router.post('/request-otp', otpLimiter, requestOtp)

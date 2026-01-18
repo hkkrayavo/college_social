@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminService, type EventItem } from '../../services/adminService'
 import { SearchFilter, Button, Pagination } from '../../components/common'
+import { getAvatarColor } from '../../utils'
 
 type SortField = 'name' | 'date' | 'albumCount'
 type SortDirection = 'asc' | 'desc'
@@ -17,7 +18,7 @@ export function AdminEvents() {
 
     // Sorting state
     const [sortField, setSortField] = useState<SortField>('date')
-    const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
     // Selection state
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -146,7 +147,13 @@ export function AdminEvents() {
         .sort((a, b) => {
             let comparison = 0
             if (sortField === 'date') {
-                comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+                const dA = new Date(a.date)
+                const dB = new Date(b.date)
+                const [hA, mA] = (a.startTime || '00:00').split(':').map(Number)
+                const [hB, mB] = (b.startTime || '00:00').split(':').map(Number)
+                dA.setHours(hA, mA, 0, 0)
+                dB.setHours(hB, mB, 0, 0)
+                comparison = dA.getTime() - dB.getTime()
             } else if (sortField === 'albumCount') {
                 comparison = a.albumCount - b.albumCount
             } else {
@@ -155,21 +162,7 @@ export function AdminEvents() {
             return sortDirection === 'asc' ? comparison : -comparison
         })
 
-    const getAvatarColor = (name: string) => {
-        const colors = [
-            'bg-blue-600',
-            'bg-indigo-600',
-            'bg-purple-600',
-            'bg-pink-600',
-            'bg-rose-600',
-            'bg-amber-600',
-            'bg-emerald-600',
-            'bg-cyan-600',
-            'bg-teal-600'
-        ]
-        const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-        return colors[index]
-    }
+
 
     return (
         <div className="space-y-6">
@@ -404,15 +397,7 @@ export function AdminEvents() {
                                             <SortIcon field="name" />
                                         </div>
                                     </th>
-                                    <th
-                                        onClick={() => handleSort('date')}
-                                        className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            Date
-                                            <SortIcon field="date" />
-                                        </div>
-                                    </th>
+
                                     <th
                                         onClick={() => handleSort('albumCount')}
                                         className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -456,7 +441,9 @@ export function AdminEvents() {
                                                     </div>
                                                     <div className="min-w-0 flex-1 overflow-hidden">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-medium text-gray-800 text-sm truncate">{event.name}</span>
+                                                            <span className="font-medium text-gray-800 text-sm truncate">
+                                                                {event.name} - {formatDate(event.date)}
+                                                            </span>
                                                             <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${expandedId === event.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                             </svg>
@@ -467,12 +454,7 @@ export function AdminEvents() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {formatDate(event.date)}
-                                                {event.endDate && event.endDate !== event.date && (
-                                                    <span className="text-gray-400"> — {formatDate(event.endDate)}</span>
-                                                )}
-                                            </td>
+
                                             <td className="px-6 py-4">
                                                 <span className="inline-flex items-center px-2.5 py-1 bg-navy/10 text-navy rounded-full text-xs font-medium">
                                                     {event.albumCount}
@@ -480,33 +462,39 @@ export function AdminEvents() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                                                 <div className="flex items-center gap-1">
-                                                    <button
+                                                    <Button
                                                         onClick={() => navigate(`/dashboard/admin/events/${event.id}/albums`)}
-                                                        className="p-2 text-gray-500 hover:text-navy hover:bg-navy/10 rounded-lg transition-colors flex-shrink-0"
+                                                        className="p-2 text-gray-500  rounded-lg transition-colors flex-shrink-0"
                                                         title="View albums"
+                                                        variant='primary'
                                                     >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                         </svg>
-                                                    </button>
-                                                    <button
+                                                        View
+                                                    </Button>
+                                                    <Button
                                                         onClick={() => navigate(`/dashboard/admin/events/${event.id}/edit`)}
-                                                        className="p-2 text-gray-500 hover:text-navy hover:bg-navy/10 rounded-lg transition-colors flex-shrink-0"
+                                                        className="p-2 text-gray-500  rounded-lg transition-colors flex-shrink-0"
                                                         title="Edit event"
+                                                        variant='gold'
                                                     >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                         </svg>
-                                                    </button>
-                                                    <button
+                                                        Edit
+                                                    </Button>
+                                                    <Button
                                                         onClick={() => handleDelete(event.id)}
-                                                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                                        className="p-2 text-gray-500  rounded-lg transition-colors flex-shrink-0"
                                                         title="Delete event"
+                                                        variant='danger'
                                                     >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                    </button>
+                                                        Delete
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>

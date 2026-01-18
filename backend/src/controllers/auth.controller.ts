@@ -5,12 +5,62 @@ import { generateOtp, getOtpExpiry, MAX_OTP_ATTEMPTS } from '../utils/otp.js'
 import { generateTokens, verifyToken, getAccessExpirySeconds } from '../utils/jwt.js'
 import { asyncHandler, createError } from '../middleware/errorHandler.js'
 
+// POST /api/auth/check-status
+// Check if account exists and its approval status BEFORE sending OTP
+export const checkAccountStatus = asyncHandler(async (req: Request, res: Response) => {
+    const { mobileNumber } = req.body
+
+    if (!mobileNumber || mobileNumber.length < 10) {
+        throw createError('Valid mobile number is required', 400)
+    }
+
+    // Find user
+    const user = await User.findOne({
+        where: { mobileNumber },
+    })
+
+    if (!user) {
+        // User doesn't exist - they can proceed to signup or this is a new login attempt
+        res.json({
+            success: true,
+            exists: false,
+            status: null,
+            message: 'Account not found. Please sign up first.',
+        })
+        return
+    }
+
+    // Return account status
+    res.json({
+        success: true,
+        exists: true,
+        status: user.status,
+        message: user.status === 'approved'
+            ? 'Account is approved'
+            : user.status === 'pending'
+                ? 'Your account is pending approval'
+                : 'Your account has been rejected',
+    })
+})
+
 // POST /api/auth/request-otp
 export const requestOtp = asyncHandler(async (req: Request, res: Response) => {
     const { mobileNumber } = req.body
 
     if (!mobileNumber || mobileNumber.length < 10) {
         throw createError('Valid mobile number is required', 400)
+    }
+
+    // Check if user exists and is approved before sending OTP
+    const user = await User.findOne({ where: { mobileNumber } })
+
+    if (user) {
+        if (user.status === 'pending') {
+            throw createError('Your account is pending approval', 403)
+        }
+        if (user.status === 'rejected') {
+            throw createError('Your account has been rejected', 403)
+        }
     }
 
     // Generate OTP

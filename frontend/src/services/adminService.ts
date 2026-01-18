@@ -96,6 +96,16 @@ export interface EventDetail extends EventItem {
     albums: AlbumItem[]
 }
 
+export interface SmsTemplate {
+    id: string
+    key: string
+    name: string
+    description: string | null
+    content: string
+    variables: string[]
+    isActive: boolean
+}
+
 // Admin service - RESTful endpoints
 export const adminService = {
     // ==========================================
@@ -112,9 +122,9 @@ export const adminService = {
     // Users (RESTful - no /admin/ prefix)
     // ==========================================
 
-    // GET /api/users?status=pending - Get pending users
-    async getPendingUsers(page = 1, limit = 20): Promise<PaginatedResponse<UserItem>> {
-        return apiClient.get(`/users?status=pending&page=${page}&limit=${limit}`)
+    // GET /api/users?status=pending,rejected - Get pending/rejected users
+    async getPendingUsers(page = 1, limit = 20, statuses: string[] = ['pending']): Promise<PaginatedResponse<UserItem>> {
+        return apiClient.get(`/users?status=${statuses.join(',')}&page=${page}&limit=${limit}`)
     },
 
     // GET /api/users - Get all users with optional filters
@@ -141,8 +151,8 @@ export const adminService = {
     },
 
     // Approve user (convenience wrapper)
-    async approveUser(userId: string): Promise<void> {
-        await this.updateUserStatus(userId, 'approved')
+    async approveUser(userId: string, message?: string): Promise<void> {
+        await this.updateUserStatus(userId, 'approved', message)
     },
 
     // Reject user (convenience wrapper)
@@ -153,6 +163,12 @@ export const adminService = {
     // DELETE /api/users/:id - Delete user
     async deleteUser(userId: string): Promise<void> {
         await apiClient.delete(`/users/${userId}`)
+    },
+
+    // GET /api/users/:id/groups - Get groups a user belongs to
+    async getUserGroups(userId: string): Promise<{ id: string; name: string; description?: string }[]> {
+        const response = await apiClient.get<{ success: boolean; groups: { id: string; name: string; description?: string }[] }>(`/users/${userId}/groups`)
+        return response.groups
     },
 
     // ==========================================
@@ -189,9 +205,10 @@ export const adminService = {
         return apiClient.get(url)
     },
 
-    // GET /api/posts?status=pending - Get pending posts
-    async getPendingPosts(page = 1, limit = 20): Promise<PaginatedResponse<PostItem>> {
-        return apiClient.get(`/posts?status=pending&page=${page}&limit=${limit}`)
+    // GET /api/posts?status=pending - Get pending posts (or other statuses)
+    async getPendingPosts(page = 1, limit = 20, statuses: string[] = ['pending']): Promise<PaginatedResponse<PostItem>> {
+        const statusParam = statuses.join(',')
+        return apiClient.get(`/posts?status=${statusParam}&page=${page}&limit=${limit}`)
     },
 
     // GET /api/posts/:id - Get single post
@@ -257,6 +274,13 @@ export const adminService = {
     // POST /api/groups/:id/members - Add members to group
     async addGroupMembers(groupId: string, userIds: string[]): Promise<void> {
         await apiClient.post(`/groups/${groupId}/members`, { userIds })
+    },
+
+    // Add a user to multiple groups
+    async addUserToGroups(userId: string, groupIds: string[]): Promise<void> {
+        await Promise.all(groupIds.map(groupId =>
+            apiClient.post(`/groups/${groupId}/members`, { userIds: [userId] })
+        ))
     },
 
     // DELETE /api/groups/:id/members/:userId - Remove member from group
@@ -366,5 +390,36 @@ export const adminService = {
     // DELETE /api/events/:id - Delete event and all albums
     async deleteEvent(eventId: string): Promise<void> {
         await apiClient.delete(`/events/${eventId}`)
+    },
+
+    // ==========================================
+    // SMS Templates
+    // ==========================================
+
+    // GET /api/sms-templates - Get all SMS templates
+    async getSmsTemplates(): Promise<SmsTemplate[]> {
+        const response = await apiClient.get<{ success: boolean; data: SmsTemplate[] }>('/sms-templates')
+        return response.data
+    },
+
+    // PATCH /api/sms-templates/:key - Update template content
+    async updateSmsTemplate(key: string, content: string): Promise<void> {
+        await apiClient.patch(`/sms-templates/${key}`, { content })
+    },
+
+    // POST /api/sms-templates/:key/toggle - Toggle template active status
+    async toggleSmsTemplate(key: string): Promise<{ isActive: boolean }> {
+        const response = await apiClient.post<{ success: boolean; data: { isActive: boolean } }>(`/sms-templates/${key}/toggle`)
+        return response.data
+    },
+
+    // GET /api/sms-templates/:key - Get single template by key
+    async getSmsTemplate(key: string): Promise<SmsTemplate | null> {
+        try {
+            const response = await apiClient.get<{ success: boolean; data: SmsTemplate }>(`/sms-templates/${key}`)
+            return response.data
+        } catch {
+            return null
+        }
     },
 }

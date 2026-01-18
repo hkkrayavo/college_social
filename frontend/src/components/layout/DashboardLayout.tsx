@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Avatar } from '../common'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 interface NavItem {
     label: string
@@ -21,7 +23,7 @@ const userNavItems: NavItem[] = [
     },
     {
         label: 'My Posts',
-        path: '/dashboard/my-posts',
+        path: '/dashboard/user/my-posts',
         icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -29,26 +31,27 @@ const userNavItems: NavItem[] = [
         ),
     },
     {
+        label: 'Posts',
+        path: '/dashboard/user/posts',
+        icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+        ),
+    },
+    {
         label: 'Event Feed',
-        path: '/dashboard/eventfeed',
+        path: '/dashboard/user/eventfeed',
         icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
         ),
     },
-    {
-        label: 'Groups',
-        path: '/dashboard/groups',
-        icon: (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-        ),
-    },
+
     {
         label: 'Profile',
-        path: '/dashboard/profile',
+        path: '/dashboard/user/profile',
         icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -144,6 +147,25 @@ export function DashboardLayout({ isAdmin = false }: DashboardLayoutProps) {
     const navigate = useNavigate()
     const { user, logout } = useAuth()
     const navItems = isAdmin ? adminNavItems : userNavItems
+    const [logoUrl, setLogoUrl] = useState<string>('')
+
+    useEffect(() => {
+        const fetchLogo = async () => {
+            try {
+                const token = localStorage.getItem('auth_access_token')
+                const res = await fetch(`${API_URL}/users/settings/site_logo`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+                const data = await res.json()
+                if (data.success && data.value) {
+                    setLogoUrl(data.value)
+                }
+            } catch (err) {
+                console.error('Failed to load logo:', err)
+            }
+        }
+        fetchLogo()
+    }, [])
 
     // Check if user has admin role
     const userIsAdmin = user?.role === 'admin'
@@ -172,9 +194,13 @@ export function DashboardLayout({ isAdmin = false }: DashboardLayoutProps) {
             {/* Mobile Header */}
             <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-navy text-white px-4 py-3 flex items-center justify-between">
                 <Link to="/" className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center">
-                        <span className="text-navy font-bold text-sm">C</span>
-                    </div>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-full object-cover bg-white" />
+                    ) : (
+                        <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center">
+                            <span className="text-navy font-bold text-sm">C</span>
+                        </div>
+                    )}
                     <span className="font-serif font-bold">College</span>
                     {isAdmin && <span className="text-gold text-xs">Admin</span>}
                 </Link>
@@ -213,9 +239,13 @@ export function DashboardLayout({ isAdmin = false }: DashboardLayoutProps) {
                 {/* Logo - Hidden on mobile (shown in header) */}
                 <div className="hidden lg:block p-6 border-b border-white/10">
                     <Link to="/" className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
-                            <span className="text-navy font-bold text-lg">C</span>
-                        </div>
+                        {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-full object-cover bg-white" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
+                                <span className="text-navy font-bold text-lg">C</span>
+                            </div>
+                        )}
                         <div>
                             <span className="font-serif font-bold text-lg">College</span>
                             {isAdmin && <span className="text-gold text-xs block">Admin Panel</span>}

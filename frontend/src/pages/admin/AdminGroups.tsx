@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { adminService, type GroupItem, type GroupType } from '../../services/adminService'
 import { Pagination, SearchFilter, Button } from '../../components/common'
+import { getAvatarColor } from '../../utils'
 
 interface GroupFormData {
     name: string
@@ -276,21 +277,7 @@ export function AdminGroups() {
             return sortDirection === 'asc' ? comparison : -comparison
         })
 
-    const getAvatarColor = (name: string) => {
-        const colors = [
-            'bg-blue-600',
-            'bg-indigo-600',
-            'bg-purple-600',
-            'bg-pink-600',
-            'bg-rose-600',
-            'bg-amber-600',
-            'bg-emerald-600',
-            'bg-cyan-600',
-            'bg-teal-600'
-        ]
-        const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-        return colors[index]
-    }
+
 
     return (
         <div className="space-y-6">
@@ -380,15 +367,6 @@ export function AdminGroups() {
                                     </div>
                                 </th>
                                 <th
-                                    onClick={() => handleSort('description')}
-                                    className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        Description
-                                        <SortIcon field="description" />
-                                    </div>
-                                </th>
-                                <th
                                     onClick={() => handleSort('type')}
                                     className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
                                 >
@@ -409,14 +387,13 @@ export function AdminGroups() {
                                     <tr key={i} className="animate-pulse">
                                         <td className="px-4 py-4"><div className="w-4 h-4 bg-gray-200 rounded" /></td>
                                         <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32" /></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48" /></td>
                                         <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-16" /></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24" /></td>
+                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48" /></td>
                                     </tr>
                                 ))
                             ) : filteredAndSortedGroups.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-16 text-center">
+                                    <td colSpan={4} className="px-6 py-16 text-center">
                                         <div className="text-gray-400">
                                             <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -459,9 +436,6 @@ export function AdminGroups() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600 text-sm max-w-xs">
-                                                <span className="line-clamp-1">{group.description || <span className="text-gray-400">—</span>}</span>
-                                            </td>
                                             <td className="px-6 py-4">
                                                 <span className="capitalize px-2.5 py-1 bg-navy/10 text-navy rounded-full text-xs font-medium">
                                                     {group.type}
@@ -469,33 +443,36 @@ export function AdminGroups() {
                                             </td>
                                             <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                                                 <div className="flex items-center gap-2">
-                                                    <Link
-                                                        to={`/dashboard/admin/groups/${group.id}/members`}
-                                                        className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                        title="View members"
+                                                    <Button
+                                                        variant="success"
+                                                        size="sm"
+                                                        onClick={() => navigate(`/dashboard/admin/groups/${group.id}/members`)}
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                                                         </svg>
-                                                    </Link>
-                                                    <button
+                                                        Members
+                                                    </Button>
+                                                    <Button
+                                                        variant="primary"
+                                                        size="sm"
                                                         onClick={() => handleEditGroup(group)}
-                                                        className="p-2 text-gray-500 hover:text-navy hover:bg-navy/10 rounded-lg transition-colors"
-                                                        title="Edit group"
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                         </svg>
-                                                    </button>
-                                                    <button
+                                                        Edit
+                                                    </Button>
+                                                    <Button
+                                                        variant="danger"
+                                                        size="sm"
                                                         onClick={() => setDeleteConfirm(group.id)}
-                                                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete group"
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                    </button>
+                                                        Delete
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -503,7 +480,7 @@ export function AdminGroups() {
                                         {expandedId === group.id && (
                                             <tr key={`${group.id}-details`} className="bg-gray-50 border-l-4 border-green-500">
                                                 <td className="px-4"></td>
-                                                <td colSpan={4} className="px-6 py-4">
+                                                <td colSpan={3} className="px-6 py-4">
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                         <div>
                                                             <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Group Information</h4>
@@ -567,234 +544,240 @@ export function AdminGroups() {
             />
 
             {/* Create/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-                        <div className="p-6 border-b border-gray-100">
-                            <h2 className="text-xl font-bold text-navy">
-                                {modalMode === 'create' ? 'Create New Group' : 'Edit Group'}
-                            </h2>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {formError && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-                                    {formError}
+            {
+                showModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                            <div className="p-6 border-b border-gray-100">
+                                <h2 className="text-xl font-bold text-navy">
+                                    {modalMode === 'create' ? 'Create New Group' : 'Edit Group'}
+                                </h2>
+                            </div>
+                            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                                {formError && (
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                                        {formError}
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Group Type</label>
+                                    <select
+                                        value={formData.groupTypeId || ''}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, groupTypeId: e.target.value }))}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
+                                    >
+                                        <option value="">Select a type (optional)</option>
+                                        {groupTypes.map(type => (
+                                            <option key={type.id} value={type.id}>
+                                                {type.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
-                            )}
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Group Type</label>
-                                <select
-                                    value={formData.groupTypeId || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, groupTypeId: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
-                                >
-                                    <option value="">Select a type (optional)</option>
-                                    {groupTypes.map(type => (
-                                        <option key={type.id} value={type.id}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Group Name *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
+                                        placeholder="Enter group name"
+                                    />
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Group Name *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
-                                    placeholder="Enter group name"
-                                />
-                            </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        rows={3}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
+                                        placeholder="Optional description"
+                                    />
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
-                                    placeholder="Optional description"
-                                />
-                            </div>
+                                <div className="flex gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setShowModal(false)}
+                                        className="flex-1"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        loading={submitting}
+                                        className="flex-1"
+                                    >
+                                        {modalMode === 'create' ? 'Create Group' : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
 
+            {/* Delete Confirmation Modal */}
+            {
+                deleteConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Group?</h3>
+                            <p className="text-gray-600 mb-6">This will remove all members from the group. This action cannot be undone.</p>
                             <div className="flex gap-3">
                                 <Button
-                                    type="button"
                                     variant="outline"
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => setDeleteConfirm(null)}
                                     className="flex-1"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
-                                    type="submit"
-                                    loading={submitting}
+                                    variant="danger"
+                                    onClick={() => handleDelete(deleteConfirm)}
+                                    loading={deleting}
                                     className="flex-1"
                                 >
-                                    {modalMode === 'create' ? 'Create Group' : 'Save Changes'}
+                                    Delete
                                 </Button>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Group?</h3>
-                        <p className="text-gray-600 mb-6">This will remove all members from the group. This action cannot be undone.</p>
-                        <div className="flex gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => setDeleteConfirm(null)}
-                                className="flex-1"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={() => handleDelete(deleteConfirm)}
-                                loading={deleting}
-                                className="flex-1"
-                            >
-                                Delete
-                            </Button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Group Types Management Modal */}
-            {showTypeModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                            <h2 className="text-lg font-bold text-navy">
-                                {editingTypeId ? 'Edit Group Type' : 'Manage Group Types'}
-                            </h2>
-                            <button
-                                onClick={() => { setShowTypeModal(false); setEditingTypeId(null) }}
-                                className="p-1 hover:bg-gray-100 rounded"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                        <div className="p-4">
-                            {typeError && (
-                                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{typeError}</div>
-                            )}
+            {
+                showTypeModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                                <h2 className="text-lg font-bold text-navy">
+                                    {editingTypeId ? 'Edit Group Type' : 'Manage Group Types'}
+                                </h2>
+                                <button
+                                    onClick={() => { setShowTypeModal(false); setEditingTypeId(null) }}
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="p-4">
+                                {typeError && (
+                                    <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{typeError}</div>
+                                )}
 
-                            {/* Add/Edit Form */}
-                            <form onSubmit={handleTypeSubmit} className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Label *</label>
-                                    <input
-                                        type="text"
-                                        value={typeFormData.label}
-                                        onChange={(e) => setTypeFormData(prev => ({ ...prev, label: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy"
-                                        placeholder="e.g., Department, Club, etc."
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                    <input
-                                        type="text"
-                                        value={typeFormData.description}
-                                        onChange={(e) => setTypeFormData(prev => ({ ...prev, description: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy"
-                                        placeholder="Optional description"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    {editingTypeId && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => {
-                                                setEditingTypeId(null)
-                                                setTypeFormData({ label: '', description: '' })
-                                            }}
-                                        >
-                                            Cancel Edit
+                                {/* Add/Edit Form */}
+                                <form onSubmit={handleTypeSubmit} className="space-y-4 mb-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Label *</label>
+                                        <input
+                                            type="text"
+                                            value={typeFormData.label}
+                                            onChange={(e) => setTypeFormData(prev => ({ ...prev, label: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy"
+                                            placeholder="e.g., Department, Club, etc."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <input
+                                            type="text"
+                                            value={typeFormData.description}
+                                            onChange={(e) => setTypeFormData(prev => ({ ...prev, description: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy"
+                                            placeholder="Optional description"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {editingTypeId && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditingTypeId(null)
+                                                    setTypeFormData({ label: '', description: '' })
+                                                }}
+                                            >
+                                                Cancel Edit
+                                            </Button>
+                                        )}
+                                        <Button type="submit" loading={typeSubmitting}>
+                                            {editingTypeId ? 'Update Type' : 'Add Type'}
                                         </Button>
-                                    )}
-                                    <Button type="submit" loading={typeSubmitting}>
-                                        {editingTypeId ? 'Update Type' : 'Add Type'}
-                                    </Button>
-                                </div>
-                            </form>
+                                    </div>
+                                </form>
 
-                            {/* Existing Types List */}
-                            <div className="border-t border-gray-200 pt-4">
-                                <h3 className="text-sm font-semibold text-gray-600 mb-3">Existing Group Types</h3>
-                                {groupTypes.length === 0 ? (
-                                    <p className="text-sm text-gray-500">No group types defined yet.</p>
-                                ) : (
-                                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                                        {groupTypes.map(type => (
-                                            <div key={type.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                                <div>
-                                                    <span className="font-medium text-gray-800">{type.label}</span>
-                                                    {type.description && (
-                                                        <span className="text-sm text-gray-500 ml-2">- {type.description}</span>
-                                                    )}
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => handleOpenTypeModal(type)}
-                                                        className="p-1.5 text-gray-500 hover:text-navy hover:bg-gray-100 rounded"
-                                                        title="Edit"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                    </button>
-                                                    {deleteTypeConfirm === type.id ? (
-                                                        <div className="flex gap-1">
-                                                            <button
-                                                                onClick={() => handleDeleteType(type.id)}
-                                                                className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                                                            >
-                                                                Confirm
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setDeleteTypeConfirm(null)}
-                                                                className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    ) : (
+                                {/* Existing Types List */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h3 className="text-sm font-semibold text-gray-600 mb-3">Existing Group Types</h3>
+                                    {groupTypes.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No group types defined yet.</p>
+                                    ) : (
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {groupTypes.map(type => (
+                                                <div key={type.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                                    <div>
+                                                        <span className="font-medium text-gray-800">{type.label}</span>
+                                                        {type.description && (
+                                                            <span className="text-sm text-gray-500 ml-2">- {type.description}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-1">
                                                         <button
-                                                            onClick={() => setDeleteTypeConfirm(type.id)}
-                                                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                                                            title="Delete"
+                                                            onClick={() => handleOpenTypeModal(type)}
+                                                            className="p-1.5 text-gray-500 hover:text-navy hover:bg-gray-100 rounded"
+                                                            title="Edit"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                             </svg>
                                                         </button>
-                                                    )}
+                                                        {deleteTypeConfirm === type.id ? (
+                                                            <div className="flex gap-1">
+                                                                <button
+                                                                    onClick={() => handleDeleteType(type.id)}
+                                                                    className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                                                                >
+                                                                    Confirm
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setDeleteTypeConfirm(null)}
+                                                                    className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setDeleteTypeConfirm(type.id)}
+                                                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                                                                title="Delete"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }
 

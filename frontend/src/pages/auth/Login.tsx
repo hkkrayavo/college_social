@@ -1,23 +1,62 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useLoginAction, useSendOtpAction } from '../../hooks/useAuthAction'
+import { authService } from '../../services/authService'
 import { Button } from '../../components/common'
 
-type LoginStep = 'phone' | 'otp'
+type LoginStep = 'phone' | 'pending' | 'rejected' | 'not-found' | 'otp'
 
 export function Login() {
     const [step, setStep] = useState<LoginStep>('phone')
     const [phone, setPhone] = useState('')
     const [otpSent, setOtpSent] = useState(false)
+    const [isChecking, setIsChecking] = useState(false)
+    const [statusMessage, setStatusMessage] = useState('')
     const { state: loginState, formAction: loginAction, isPending: isLoggingIn } = useLoginAction()
     const { state: otpState, formAction: sendOtpAction, isPending: isSendingOtp } = useSendOtpAction()
 
-    // Handle OTP sent successfully
-    const handleSendOtp = async (formData: FormData) => {
+    // Check account status before sending OTP
+    const handleCheckAndSendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
         const phoneValue = formData.get('phone') as string
         setPhone(phoneValue)
-        setOtpSent(false) // Reset flag before sending
-        await sendOtpAction(formData)
+        setIsChecking(true)
+
+        try {
+            // First check account status
+            const statusResult = await authService.checkAccountStatus(phoneValue)
+
+            if (!statusResult.exists) {
+                // Account doesn't exist
+                setStatusMessage('Account not found. Please sign up first.')
+                setStep('not-found')
+                return
+            }
+
+            if (statusResult.status === 'pending') {
+                // Account pending approval - show only pending message
+                setStatusMessage('Your account is pending approval.')
+                setStep('pending')
+                return
+            }
+
+            if (statusResult.status === 'rejected') {
+                // Account rejected
+                setStatusMessage('Your account has been rejected. Please contact admin for more information.')
+                setStep('rejected')
+                return
+            }
+
+            // Account is approved - send OTP
+            setOtpSent(false)
+            await sendOtpAction(formData)
+        } catch (err) {
+            // Handle error - show on phone step
+            setStatusMessage(err instanceof Error ? err.message : 'Failed to check account status')
+        } finally {
+            setIsChecking(false)
+        }
     }
 
     // Move to OTP step when OTP is sent successfully  
@@ -31,24 +70,25 @@ export function Login() {
     // Handle changing number - go back to phone step
     const handleChangeNumber = () => {
         setStep('phone')
-        setOtpSent(false) // Reset so we can send OTP again
+        setOtpSent(false)
+        setStatusMessage('')
     }
 
     return (
         <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12">
             <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md border border-gray-100">
-                <h1 className="text-2xl font-bold text-navy text-center mb-6">Welcome Back</h1>
+                <h1 className="text-2xl font-bold text-navy text-center mb-6">Login</h1>
 
                 {/* Step 1: Phone Number */}
                 {step === 'phone' && (
                     <>
-                        {otpState.error && (
+                        {(otpState.error || statusMessage) && (
                             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                                {otpState.error}
+                                {otpState.error || statusMessage}
                             </div>
                         )}
 
-                        <form action={handleSendOtp} className="space-y-5">
+                        <form onSubmit={handleCheckAndSendOtp} className="space-y-5">
                             <div>
                                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                                     Phone Number
@@ -75,16 +115,75 @@ export function Login() {
                                 type="submit"
                                 size="lg"
                                 fullWidth
-                                loading={isSendingOtp}
+                                loading={isChecking || isSendingOtp}
                                 disabled={phone.length < 10}
                             >
-                                Send OTP
+                                {isChecking ? 'Checking...' : 'Send OTP'}
                             </Button>
                         </form>
                     </>
                 )}
 
-                {/* Step 2: OTP Verification */}
+                {/* Account Pending Approval - Show ONLY the pending message */}
+                {step === 'pending' && (
+                    <div className="text-center space-y-6 py-4">
+                        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+                            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Account Pending</h2>
+                            <p className="text-gray-500 mt-2">{statusMessage}</p>
+                        </div>
+                        <Button variant="primary" onClick={handleChangeNumber}>
+                            Try Different Number
+                        </Button>
+                    </div>
+                )}
+
+                {/* Account Rejected */}
+                {step === 'rejected' && (
+                    <div className="text-center space-y-6 py-4">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Account Rejected</h2>
+                            <p className="text-gray-500 mt-2">{statusMessage}</p>
+                        </div>
+                        <Button variant="primary" onClick={handleChangeNumber}>
+                            Try Different Number
+                        </Button>
+                    </div>
+                )}
+
+                {/* Account Not Found */}
+                {step === 'not-found' && (
+                    <div className="text-center space-y-6 py-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                            <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Account Not Found</h2>
+                            <p className="text-gray-500 mt-2">{statusMessage}</p>
+                        </div>
+                        <div className="flex gap-3">
+                            <Button variant="outline" onClick={handleChangeNumber} className="flex-1">
+                                Try Again
+                            </Button>
+                            <Link to="/signup" className="flex-1">
+                                <Button fullWidth>Sign Up</Button>
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 2: OTP Verification (only shown for approved accounts) */}
                 {step === 'otp' && (
                     <>
                         <div className="text-center mb-6">
@@ -125,8 +224,26 @@ export function Login() {
                                                 const input = e.target as HTMLInputElement
                                                 const value = input.value.replace(/\D/g, '')
                                                 input.value = value
+
+                                                // Move to next input if value entered
                                                 if (value && input.nextElementSibling) {
                                                     (input.nextElementSibling as HTMLInputElement).focus()
+                                                }
+
+                                                // Auto-submit when all 4 digits are entered
+                                                const form = input.closest('form')
+                                                const inputs = form?.querySelectorAll('input[data-index]') as NodeListOf<HTMLInputElement>
+                                                const otp = Array.from(inputs).map(i => i.value).join('')
+
+                                                if (otp.length === 4) {
+                                                    // Set hidden OTP field
+                                                    const otpInput = form?.querySelector('input[name="otp"]') as HTMLInputElement
+                                                    if (otpInput) otpInput.value = otp
+
+                                                    // Auto-submit after a brief delay for UX
+                                                    setTimeout(() => {
+                                                        form?.requestSubmit()
+                                                    }, 150)
                                                 }
                                             }}
                                             onKeyDown={(e) => {
@@ -177,13 +294,15 @@ export function Login() {
                     </>
                 )}
 
-                {/* Sign Up Link */}
-                <p className="text-center mt-6 text-gray-500 text-sm">
-                    Don't have an account?{' '}
-                    <Link to="/signup" className="text-gold font-medium hover:underline">
-                        Sign Up
-                    </Link>
-                </p>
+                {/* Sign Up Link - show only on phone step */}
+                {step === 'phone' && (
+                    <p className="text-center mt-6 text-gray-500 text-sm">
+                        Don't have an account?{' '}
+                        <Link to="/signup" className="text-gold font-medium hover:underline">
+                            Sign Up
+                        </Link>
+                    </p>
+                )}
             </div>
         </div>
     )

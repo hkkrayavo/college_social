@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminService, type PostItem } from '../../services/adminService'
 import { Pagination, SearchFilter, Button, Avatar } from '../../components/common'
+import { getAvatarColor } from '../../utils'
 
 type SortField = 'title' | 'author' | 'createdAt'
 type SortDirection = 'asc' | 'desc'
@@ -27,7 +28,7 @@ export function PendingPosts() {
     const loadPosts = useCallback(async () => {
         try {
             setLoading(true)
-            const response = await adminService.getPendingPosts(page, itemsPerPage)
+            const response = await adminService.getPendingPosts(page, itemsPerPage, ['pending', 'rejected'])
             setPosts(response.data)
             setTotalPages(response.pagination?.totalPages || 1)
             setTotalItems(response.pagination?.total || 0)
@@ -173,21 +174,7 @@ export function PendingPosts() {
         loadPosts()
     }
 
-    const getAvatarColor = (name: string) => {
-        const colors = [
-            'bg-blue-600',
-            'bg-indigo-600',
-            'bg-purple-600',
-            'bg-pink-600',
-            'bg-rose-600',
-            'bg-amber-600',
-            'bg-emerald-600',
-            'bg-cyan-600',
-            'bg-teal-600'
-        ]
-        const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-        return colors[index]
-    }
+
 
     return (
         <div className="space-y-6">
@@ -284,6 +271,9 @@ export function PendingPosts() {
                                         <SortIcon field="createdAt" />
                                     </div>
                                 </th>
+                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    Status
+                                </th>
                                 <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Actions
                                 </th>
@@ -313,7 +303,7 @@ export function PendingPosts() {
                                             <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
-                                            <p className="text-lg font-medium">{search ? 'No posts match your search' : 'No posts pending approval'}</p>
+                                            <p className="text-lg font-medium">{search ? 'No posts match your search' : 'No posts pending moderation'}</p>
                                             <p className="text-sm mt-1">Check back later or adjust your filters</p>
                                         </div>
                                     </td>
@@ -354,6 +344,14 @@ export function PendingPosts() {
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             {formatDate(post.createdAt)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${post.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                    post.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                {post.status.toUpperCase()}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
                                             <div className="flex gap-2 justify-end">

@@ -75,3 +75,44 @@ export function getMediaUrl(path: string | null | undefined): string {
 
     return `${baseUrl}${cleanPath}`
 }
+
+/**
+ * Format a date string to a relative time (Today, Yesterday, X days ago, or Date)
+ */
+export function formatRelativeTime(dateStr: string): string {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays} days ago`
+
+    return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    })
+}
+
+/**
+ * Calculate read time from JSON content block
+ */
+export function getReadTime(content: string): string {
+    try {
+        const data = JSON.parse(content)
+        let wordCount = 0
+        if (data.blocks) {
+            data.blocks.forEach((block: { data?: { text?: string } }) => {
+                if (block.data?.text) {
+                    wordCount += block.data.text.split(/\s+/).length
+                }
+            })
+        }
+        const minutes = Math.max(1, Math.ceil(wordCount / 200))
+        return `${minutes} min read`
+    } catch {
+        return '1 min read'
+    }
+}

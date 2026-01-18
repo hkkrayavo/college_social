@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { feedService, type FeedItem, type AlbumDetail, type AlbumWithMedia } from '../../services/feedService'
 import { LikeButton } from '../../components/shared/LikeButton'
+import { LikersList } from '../../components/shared/LikersList'
 import { CommentSection } from '../../components/shared/CommentSection'
 import { getMediaUrl } from '../../utils/helpers'
 import { Avatar } from '../../components/common'
@@ -18,6 +19,7 @@ export function EventFeed() {
     const [viewerLoading, setViewerLoading] = useState(false)
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
     const [showComments, setShowComments] = useState(false)
+    const [showLikers, setShowLikers] = useState(false)
 
     const loadFeed = useCallback(async (pageNum: number, append = false) => {
         try {
@@ -251,7 +253,8 @@ export function EventFeed() {
                             {/* Photo Interactions */}
                             {currentMedia && (
                                 <div className="p-4 border-b border-gray-200">
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        {/* Like Button for like/unlike action */}
                                         <LikeButton
                                             key={currentMedia.id}
                                             type="media"
@@ -271,10 +274,22 @@ export function EventFeed() {
                                                 }
                                             }}
                                         />
+                                        {/* View Likers Button */}
                                         <button
-                                            onClick={() => setShowComments(!showComments)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors ${showComments ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
+                                            onClick={() => { setShowLikers(!showLikers); setShowComments(false); }}
+                                            className={`p-1.5 rounded-full transition-colors cursor-pointer ${showLikers ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'}`}
+                                            title="View who liked"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        {/* Comments Button */}
+                                        <button
+                                            onClick={() => { setShowComments(!showComments); setShowLikers(false); }}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors cursor-pointer ${showComments ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                            title="Comments"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -285,6 +300,19 @@ export function EventFeed() {
                                     {currentMedia.caption && (
                                         <p className="mt-3 text-gray-600 text-sm">{currentMedia.caption}</p>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Likers Section */}
+                            {showLikers && currentMedia && (
+                                <div className="flex-1 p-4 overflow-y-auto">
+                                    <LikersList
+                                        key={`${currentMedia.id}-${currentMedia.likesCount}`}
+                                        type="media"
+                                        id={currentMedia.id}
+                                        compact={false}
+                                        initialCount={currentMedia.likesCount}
+                                    />
                                 </div>
                             )}
 
@@ -345,7 +373,9 @@ interface EventCardProps {
 
 function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: EventCardProps) {
     const [showComments, setShowComments] = useState(false)
+    const [showLikers, setShowLikers] = useState(false)
     const [commentsCount, setCommentsCount] = useState(item.commentsCount)
+    const [likesCount, setLikesCount] = useState(item.likesCount)
     const { eventData } = item
 
     return (
@@ -370,7 +400,7 @@ function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: Event
 
             {/* Event Content */}
             <div className="px-5 py-4">
-                <Link to={`/dashboard/events/${item.id}`} className="text-xl font-bold text-gray-900 hover:text-navy transition-colors">
+                <Link to={`/dashboard/user/events/${item.id}`} className="text-xl font-bold text-gray-900 hover:text-navy transition-colors">
                     {eventData.name}
                 </Link>
                 <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
@@ -403,18 +433,32 @@ function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: Event
             </div>
 
             {/* Actions */}
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-4">
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-3">
+                {/* Like Button for like/unlike */}
                 <LikeButton
                     type="events"
                     id={item.id}
                     initialLiked={item.liked}
                     initialCount={item.likesCount}
                     size="sm"
+                    onStateChange={(_liked, count) => setLikesCount(count)}
                 />
+                {/* View Likers Button */}
                 <button
-                    onClick={() => setShowComments(!showComments)}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm transition-colors ${showComments ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                    onClick={() => { setShowLikers(!showLikers); setShowComments(false); }}
+                    className={`p-1.5 rounded-full transition-colors cursor-pointer ${showLikers ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'}`}
+                    title="View who liked"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                </button>
+                {/* Comments Button */}
+                <button
+                    onClick={() => { setShowComments(!showComments); setShowLikers(false); }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm transition-colors cursor-pointer ${showComments ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    title="Comments"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -424,7 +468,7 @@ function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: Event
 
                 {/* View Details Link */}
                 <Link
-                    to={`/dashboard/events/${item.id}`}
+                    to={`/dashboard/user/events/${item.id}`}
                     className="ml-auto flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium text-navy hover:bg-navy/10 transition-colors"
                 >
                     View Details
@@ -433,6 +477,13 @@ function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: Event
                     </svg>
                 </Link>
             </div>
+
+            {/* Likers */}
+            {showLikers && (
+                <div className="px-5 pb-4 border-t border-gray-100 pt-4">
+                    <LikersList key={`${item.id}-${likesCount}`} type="events" id={item.id} compact={false} initialCount={likesCount} />
+                </div>
+            )}
 
             {/* Comments */}
             {showComments && (

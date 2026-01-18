@@ -5,3 +5,10 @@ designs/
 
 
 DEPLOYMENT.md
+
+postman_collection_v2.json
+postman_collection2.json
+create_postman_collection.js
+
+.env
+.env.example

@@ -2,10 +2,17 @@ import { apiClient } from './api'
 
 export type InteractionType = 'posts' | 'events' | 'albums' | 'media'
 
+export interface LikerUser {
+    id: string
+    name: string
+    profilePictureUrl?: string
+}
+
 interface LikeResponse {
     success: boolean
     liked: boolean
     likesCount: number
+    users?: LikerUser[]
 }
 
 interface CommentItem {

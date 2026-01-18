@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { apiClient } from '../../services/api'
 import PostRenderer from '../../components/shared/PostRenderer'
 import { Button, Avatar } from '../../components/common'
+import { LikersList } from '../../components/shared/LikersList'
+import { CommentSection } from '../../components/shared/CommentSection'
+import { LikeButton } from '../../components/shared/LikeButton'
 
 interface Author {
     id: string
@@ -28,24 +31,23 @@ interface Post {
     commentsCount: number
     comments: Comment[]
     createdAt: string
+    liked?: boolean
 }
 
 export function PostDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
     const [post, setPost] = useState<Post | null>(null)
-    const [comments, setComments] = useState<Comment[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [newComment, setNewComment] = useState('')
-    const [submitting, setSubmitting] = useState(false)
-    const [liked, setLiked] = useState(false)
+    const [showLikers, setShowLikers] = useState(false)
+    const [likersKey, setLikersKey] = useState(0)
     const [likesCount, setLikesCount] = useState(0)
 
     useEffect(() => {
         if (id) {
             loadPost()
-            loadComments()
+
         }
     }, [id])
 
@@ -62,30 +64,9 @@ export function PostDetail() {
         }
     }
 
-    const loadComments = async () => {
-        try {
-            const response = await apiClient.get<{ success: boolean; data: Comment[] }>(`/posts/${id}/comments`)
-            setComments(response.data || [])
-        } catch (err) {
-            console.error('Failed to load comments:', err)
-        }
-    }
 
-    const handleLike = async () => {
-        try {
-            if (liked) {
-                const response = await apiClient.delete<{ success: boolean; likesCount: number }>(`/posts/${id}/like`)
-                setLiked(false)
-                setLikesCount(response.likesCount || likesCount - 1)
-            } else {
-                const response = await apiClient.post<{ success: boolean; likesCount: number }>(`/posts/${id}/like`)
-                setLiked(true)
-                setLikesCount(response.likesCount || likesCount + 1)
-            }
-        } catch (err) {
-            console.error('Failed to toggle like:', err)
-        }
-    }
+
+
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
@@ -96,37 +77,9 @@ export function PostDetail() {
         })
     }
 
-    const formatCommentDate = (dateStr: string) => {
-        const date = new Date(dateStr)
-        const now = new Date()
-        const diffMs = now.getTime() - date.getTime()
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-        if (diffDays === 0) return 'Today'
-        if (diffDays === 1) return 'Yesterday'
-        if (diffDays < 7) return `${diffDays} days ago`
 
-        return date.toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-        })
-    }
 
-    const handleSubmitComment = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!newComment.trim() || submitting) return
-
-        setSubmitting(true)
-        try {
-            await apiClient.post(`/posts/${id}/comments`, { content: newComment.trim() })
-            setNewComment('')
-            loadComments() // Refresh comments
-        } catch (err) {
-            console.error('Failed to add comment:', err)
-        } finally {
-            setSubmitting(false)
-        }
-    }
 
     const getReadTime = (content: string): string => {
         try {
@@ -231,26 +184,39 @@ export function PostDetail() {
                     <PostRenderer content={post.content} />
                 </div>
 
-                {/* Stats Bar */}
-                <div className="px-6 py-4 flex items-center gap-6 text-sm border-b border-gray-100">
-                    {/* Reactions */}
+                {/* Actions Bar */}
+                <div className="px-6 py-4 flex items-center gap-4 text-sm border-b border-gray-100">
+                    <LikeButton
+                        type="posts"
+                        id={id!}
+                        initialLiked={post.liked || false}
+                        initialCount={likesCount}
+                        size="md"
+                        onStateChange={(_liked: boolean, count: number) => {
+                            setLikesCount(count)
+                            setLikersKey(prev => prev + 1)
+                        }}
+                    />
+
+                    {/* View Likers Button */}
                     <button
-                        onClick={handleLike}
-                        className={`flex items-center gap-2 transition-colors ${liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+                        onClick={() => setShowLikers(!showLikers)}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${showLikers ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'}`}
+                        title="View who liked"
                     >
-                        <svg className="w-5 h-5" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span>{likesCount} Reactions</span>
                     </button>
 
-                    {/* Comments */}
-                    <span className="flex items-center gap-2 text-gray-500">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    {/* Comments Indicator */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        <span>{post.commentsCount || 0} Comments</span>
-                    </span>
+                        <span className="font-medium">{post.commentsCount || 0}</span>
+                    </div>
 
                     {/* Bookmark */}
                     <button className="ml-auto flex items-center gap-2 text-gray-500 hover:text-navy transition-colors">
@@ -261,72 +227,23 @@ export function PostDetail() {
                     </button>
                 </div>
 
+                {/* Likers List */}
+                {showLikers && (
+                    <div className="px-6 py-3 border-b border-gray-100">
+                        <LikersList key={likersKey} type="posts" id={id!} compact={false} initialCount={likesCount} />
+                    </div>
+                )}
+
                 {/* Comments Section */}
                 <div className="p-6">
                     <h3 className="font-semibold text-gray-900 mb-4">
-                        Comments ({comments.length})
+                        Comments
                     </h3>
-
-                    {/* Add Comment Form */}
-                    <form onSubmit={handleSubmitComment} className="mb-6">
-                        <div className="flex gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white shrink-0">
-                                U
-                            </div>
-                            <div className="flex-1">
-                                <textarea
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Add a comment..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-navy focus:border-navy resize-none"
-                                    rows={3}
-                                />
-                                <div className="mt-2 flex justify-end">
-                                    <Button
-                                        type="submit"
-                                        disabled={!newComment.trim()}
-                                        loading={submitting}
-                                        size="sm"
-                                        variant="primary"
-                                        className="bg-navy hover:bg-navy/90"
-                                    >
-                                        Post Comment
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-
-                    {/* Comments List */}
-                    {comments.length > 0 ? (
-                        <div className="space-y-4">
-                            {comments.map(comment => (
-                                <div key={comment.id} className="flex gap-3">
-                                    <Avatar
-                                        src={(comment.author as any)?.profilePictureUrl || comment.author?.avatar}
-                                        name={comment.author?.name || 'User'}
-                                        size="sm"
-                                        className="bg-gradient-to-br from-gray-400 to-gray-500 text-white shrink-0"
-                                    />
-                                    <div className="flex-1 bg-gray-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-medium text-gray-900">
-                                                {comment.author?.name || 'Unknown'}
-                                            </span>
-                                            <span className="text-sm text-gray-400">
-                                                {formatCommentDate(comment.createdAt)}
-                                            </span>
-                                        </div>
-                                        <p className="text-gray-700">{comment.content}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-500">
-                            <p>No comments yet. Be the first to comment!</p>
-                        </div>
-                    )}
+                    <CommentSection
+                        type="posts"
+                        id={id!}
+                        onCountChange={(count) => setPost(prev => prev ? { ...prev, commentsCount: count } : null)}
+                    />
                 </div>
             </article>
         </div>

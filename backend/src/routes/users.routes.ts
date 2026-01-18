@@ -9,6 +9,7 @@ import {
     updateUser,
     createUserByAdmin,
     getDashboardStats,
+    getUserGroups,
     getSetting,
     updateSetting,
 } from '../controllers/admin.controller.js'
@@ -67,12 +68,15 @@ router.patch('/:id/status', authenticate, requireAdmin, updateUserStatus)
 // DELETE /api/users/:id - Soft delete user (Admin only)
 router.delete('/:id', authenticate, requireAdmin, deleteUser)
 
+// GET /api/users/:id/groups - Get groups a user belongs to (Admin only)
+router.get('/:id/groups', authenticate, requireAdmin, getUserGroups)
+
 // ==========================================
 // Admin Settings Routes
 // ==========================================
 
-// GET /api/users/settings/:key - Get a site setting (Admin only)
-router.get('/settings/:key', authenticate, requireAdmin, getSetting)
+// GET /api/users/settings/:key - Get a site setting (Public)
+router.get('/settings/:key', getSetting)
 
 // PUT /api/users/settings/:key - Update a site setting (Admin only)
 router.put('/settings/:key', authenticate, requireAdmin, updateSetting)

@@ -113,7 +113,7 @@ export const removeLike = asyncHandler(async (req: Request, res: Response) => {
     })
 })
 
-// GET /api/:type/:id/likes - Get like status and count
+// GET /api/:type/:id/likes - Get like status, count, and likers list
 export const getLikes = asyncHandler(async (req: Request, res: Response) => {
     const { type, id } = req.params
     const userId = req.user?.id
@@ -125,20 +125,34 @@ export const getLikes = asyncHandler(async (req: Request, res: Response) => {
     const entityType = type as EntityType
     const likeableType = typeMap[entityType]
 
-    const count = await Like.count({ where: { likeableType, likeableId: id } })
+    // Get likes with user details
+    const likes = await Like.findAll({
+        where: { likeableType, likeableId: id },
+        include: [{
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'profilePictureUrl']
+        }],
+        order: [['createdAt', 'DESC']],
+        limit: 50, // Limit for performance
+    })
+
+    const count = likes.length
 
     let liked = false
     if (userId) {
-        const userLike = await Like.findOne({
-            where: { userId, likeableType, likeableId: id }
-        })
-        liked = !!userLike
+        liked = likes.some(like => like.userId === userId)
     }
 
     res.json({
         success: true,
         likesCount: count,
         liked,
+        users: likes.map(like => ({
+            id: (like as any).user?.id,
+            name: (like as any).user?.name,
+            profilePictureUrl: (like as any).user?.profilePictureUrl,
+        })),
     })
 })
 

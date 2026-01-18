@@ -9,6 +9,7 @@ import notificationsRoutes from './notifications.routes.js'
 import settingsRoutes from './settings.routes.js'
 import interactionsRoutes from './interactions.routes.js'
 import feedRoutes from './feed.routes.js'
+import smsRoutes from './sms.routes.js'
 
 const router = Router()
 
@@ -22,6 +23,7 @@ router.use('/albums', albumsRoutes)
 router.use('/notifications', notificationsRoutes)
 router.use('/settings', settingsRoutes)
 router.use('/feed', feedRoutes)
+router.use('/sms-templates', smsRoutes)
 router.use('/', interactionsRoutes)  // Interactions at root for /api/:type/:id/like pattern
 
 // Health check

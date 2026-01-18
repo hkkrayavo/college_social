@@ -30,8 +30,8 @@ export function CommentSection({ type, id, compact = false, dark = false, onCoun
         try {
             setLoading(true)
             const res = await interactionService.getComments(type, id)
-            setComments(res.comments)
-            onCountChange?.(res.comments.length)
+            setComments(res.comments || [])
+            onCountChange?.(res.comments?.length || 0)
         } catch (err) {
             console.error('Failed to load comments:', err)
         } finally {
@@ -175,15 +175,15 @@ export function CommentSection({ type, id, compact = false, dark = false, onCoun
                                 }`}
                         >
                             <Avatar
-                                src={comment.author.profilePictureUrl}
-                                name={comment.author.name}
+                                src={comment.author?.profilePictureUrl}
+                                name={comment.author?.name || 'Unknown'}
                                 size="sm"
                                 fallbackClassName={dark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}
                             />
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                     <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-800'}`}>
-                                        {comment.author.name}
+                                        {comment.author?.name || 'Unknown'}
                                     </span>
                                     <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
                                         {formatTime(comment.createdAt)}
@@ -193,7 +193,7 @@ export function CommentSection({ type, id, compact = false, dark = false, onCoun
                                     {comment.content}
                                 </p>
                             </div>
-                            {user?.id === comment.author.id && (
+                            {user?.id && comment.author?.id && user.id === comment.author.id && (
                                 <button
                                     onClick={() => handleDeleteClick(comment.id)}
                                     title={deleteArmed === comment.id ? "Click again to confirm delete" : "Click to delete"}

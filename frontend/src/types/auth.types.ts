@@ -57,7 +57,7 @@ export interface LoginCredentials {
 // Sign up data
 export interface SignUpData {
     name: string
-    email: string
+    email?: string // Optional
     phone: string
     password?: string // Optional - using OTP auth
     role: UserRole

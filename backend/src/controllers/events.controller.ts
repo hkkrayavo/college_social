@@ -31,7 +31,7 @@ export const getEvents = asyncHandler(async (req: Request, res: Response) => {
                 { model: User, as: 'creator', attributes: ['id', 'name'] },
                 { model: Group, as: 'groups', attributes: ['id', 'name'] },
             ],
-            order: [['date', 'DESC']],
+            order: [['date', 'ASC'], ['startTime', 'ASC']],
             limit,
             offset,
             distinct: true,
@@ -103,7 +103,7 @@ export const getEvents = asyncHandler(async (req: Request, res: Response) => {
                 required: true, // Only events that have at least one of user's groups
             },
         ],
-        order: [['date', 'DESC']],
+        order: [['date', 'ASC'], ['startTime', 'ASC']],
         limit,
         offset,
         distinct: true,

@@ -75,7 +75,7 @@ export const getFeed = asyncHandler(async (req: Request, res: Response) => {
                 through: { attributes: [] }
             }
         ],
-        order: [['date', 'DESC']],
+        order: [['date', 'ASC'], ['startTime', 'ASC']],
         limit,
         offset,
         distinct: true,

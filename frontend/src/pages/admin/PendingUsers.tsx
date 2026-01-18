@@ -1,25 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminService, type UserItem } from '../../services/adminService'
-import { Pagination, SearchFilter, Button, Avatar } from '../../components/common'
+import { Pagination, SearchFilter, Button, Avatar, Modal } from '../../components/common'
+import { getAvatarColor } from '../../utils'
 
 type SortField = 'name' | 'mobileNumber' | 'email' | 'role' | 'createdAt'
 type SortDirection = 'asc' | 'desc'
 
-const getAvatarColor = (name: string) => {
-    const colors = [
-        'bg-blue-600',
-        'bg-indigo-600',
-        'bg-purple-600',
-        'bg-pink-600',
-        'bg-rose-600',
-        'bg-amber-600',
-        'bg-emerald-600',
-        'bg-cyan-600',
-        'bg-teal-600'
-    ]
-    const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-    return colors[index]
-}
+
 
 export function PendingUsers() {
     const [users, setUsers] = useState<UserItem[]>([])
@@ -42,10 +29,29 @@ export function PendingUsers() {
     // Expanded row state
     const [expandedId, setExpandedId] = useState<string | null>(null)
 
+    // Reject confirmation modal state
+    const [rejectModal, setRejectModal] = useState<{
+        isOpen: boolean
+        userId: string | null
+        isBulk: boolean
+        confirmText: string
+    }>({ isOpen: false, userId: null, isBulk: false, confirmText: '' })
+
+    // Approve modal state
+    const [approveModal, setApproveModal] = useState<{
+        isOpen: boolean
+        userId: string | null
+        userName: string
+        message: string
+        isBulk: boolean
+    }>({ isOpen: false, userId: null, userName: '', message: '', isBulk: false })
+
+    const APP_NAME = 'Alumni Portal'  // Could also be fetched from settings
+
     const loadUsers = useCallback(async () => {
         try {
             setLoading(true)
-            const response = await adminService.getPendingUsers(page, itemsPerPage)
+            const response = await adminService.getPendingUsers(page, itemsPerPage, ['pending', 'rejected'])
             setUsers(response.data)
             setTotalPages(response.pagination?.totalPages || 1)
             setTotalItems(response.pagination?.total || 0)
@@ -64,27 +70,124 @@ export function PendingUsers() {
         setSelectedIds(new Set())
     }, [users])
 
-    const handleApprove = async (userId: string, e?: React.MouseEvent) => {
+    // Open approve modal for single user
+    const openApproveModal = async (user: { id: string; name: string }, e?: React.MouseEvent) => {
         e?.stopPropagation()
+
+        // Fetch template from database and replace variables
+        let message = 'Your account has been approved! You can now log in.'
         try {
-            setActionLoading(userId)
-            await adminService.approveUser(userId)
-            setUsers(users.filter(u => u.id !== userId))
-            setTotalItems(prev => prev - 1)
+            const template = await adminService.getSmsTemplate('account_approved')
+            if (template) {
+                message = template.content
+                    .replace(/{user_name}/g, user.name)
+                    .replace(/{app_name}/g, APP_NAME)
+            }
+        } catch {
+            // Use default message if fetch fails
+        }
+
+        setApproveModal({
+            isOpen: true,
+            userId: user.id,
+            userName: user.name,
+            message,
+            isBulk: false
+        })
+    }
+
+    // Open approve modal for bulk approval
+    const openBulkApproveModal = async () => {
+        // Fetch template from database (use generic message for bulk)
+        let message = 'Your account has been approved! You can now log in.'
+        try {
+            const template = await adminService.getSmsTemplate('account_approved')
+            if (template) {
+                message = template.content
+                    .replace(/{user_name}/g, 'User')  // Placeholder for bulk
+                    .replace(/{app_name}/g, APP_NAME)
+            }
+        } catch {
+            // Use default message if fetch fails
+        }
+
+        setApproveModal({
+            isOpen: true,
+            userId: null,
+            userName: '',
+            message,
+            isBulk: true
+        })
+    }
+
+    // Close approve modal
+    const closeApproveModal = () => {
+        setApproveModal({ isOpen: false, userId: null, userName: '', message: '', isBulk: false })
+    }
+
+    // Confirm approval (single or bulk)
+    const confirmApprove = async () => {
+        try {
+            setActionLoading('approving')
+            if (approveModal.isBulk) {
+                for (const id of selectedIds) {
+                    await adminService.approveUser(id, approveModal.message)
+                }
+                setSelectedIds(new Set())
+            } else if (approveModal.userId) {
+                await adminService.approveUser(approveModal.userId, approveModal.message)
+                setUsers(users.filter(u => u.id !== approveModal.userId))
+                setTotalItems(prev => prev - 1)
+            }
+            closeApproveModal()
+            loadUsers()
         } catch (err) {
-            alert('Failed to approve user')
+            alert('Failed to approve user(s)')
         } finally {
             setActionLoading(null)
         }
     }
 
-    const handleReject = async (userId: string, e?: React.MouseEvent) => {
+    // Open reject confirmation modal for single user
+    const openRejectModal = (userId: string, e?: React.MouseEvent) => {
         e?.stopPropagation()
+        setRejectModal({ isOpen: true, userId, isBulk: false, confirmText: '' })
+    }
+
+    // Open reject confirmation modal for bulk rejection
+    const openBulkRejectModal = () => {
+        setRejectModal({ isOpen: true, userId: null, isBulk: true, confirmText: '' })
+    }
+
+    // Close reject modal
+    const closeRejectModal = () => {
+        setRejectModal({ isOpen: false, userId: null, isBulk: false, confirmText: '' })
+    }
+
+    // Confirm rejection (single or bulk)
+    const confirmReject = async () => {
+        if (rejectModal.confirmText.toLowerCase() !== 'reject') return
+
         try {
-            setActionLoading(userId)
-            await adminService.rejectUser(userId)
-            setUsers(users.filter(u => u.id !== userId))
-            setTotalItems(prev => prev - 1)
+            setActionLoading('rejecting')
+            if (rejectModal.isBulk) {
+                // Bulk rejection
+                for (const id of selectedIds) {
+                    try {
+                        await adminService.rejectUser(id)
+                    } catch (err) {
+                        console.error('Failed to reject user:', id)
+                    }
+                }
+                setSelectedIds(new Set())
+            } else if (rejectModal.userId) {
+                // Single rejection
+                await adminService.rejectUser(rejectModal.userId)
+                setUsers(users.filter(u => u.id !== rejectModal.userId))
+                setTotalItems(prev => prev - 1)
+            }
+            closeRejectModal()
+            loadUsers()
         } catch (err) {
             alert('Failed to reject user')
         } finally {
@@ -150,28 +253,8 @@ export function PendingUsers() {
     }
 
     // Bulk actions
-    const handleBulkApprove = async () => {
-        for (const id of selectedIds) {
-            try {
-                await adminService.approveUser(id)
-            } catch (err) {
-                console.error('Failed to approve user:', id)
-            }
-        }
-        setSelectedIds(new Set())
-        loadUsers()
-    }
-
-    const handleBulkReject = async () => {
-        for (const id of selectedIds) {
-            try {
-                await adminService.rejectUser(id)
-            } catch (err) {
-                console.error('Failed to reject user:', id)
-            }
-        }
-        setSelectedIds(new Set())
-        loadUsers()
+    const handleBulkApprove = () => {
+        openBulkApproveModal()
     }
 
     // Filter and sort users
@@ -192,7 +275,7 @@ export function PendingUsers() {
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-navy">Pending Users</h1>
+                    <h1 className="text-xl font-bold text-navy">Pending Moderation</h1>
                     <p className="text-gray-500 text-sm mt-0.5">Approve or reject user registrations</p>
                 </div>
                 <SearchFilter
@@ -213,7 +296,7 @@ export function PendingUsers() {
                         <Button size="sm" variant="success" onClick={handleBulkApprove}>
                             Approve Selected
                         </Button>
-                        <Button size="sm" variant="danger" onClick={handleBulkReject}>
+                        <Button size="sm" variant="danger" onClick={openBulkRejectModal}>
                             Reject Selected
                         </Button>
                     </div>
@@ -279,6 +362,9 @@ export function PendingUsers() {
                                         <SortIcon field="role" />
                                     </div>
                                 </th>
+                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    Status
+                                </th>
                                 <th className="text-right px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Actions
                                 </th>
@@ -304,12 +390,12 @@ export function PendingUsers() {
                                 ))
                             ) : filteredAndSortedUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center">
+                                    <td colSpan={7} className="px-6 py-16 text-center">
                                         <div className="text-gray-400">
                                             <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                             </svg>
-                                            <p className="text-lg font-medium">{search ? 'No users match your search' : 'No pending users'}</p>
+                                            <p className="text-lg font-medium">{search ? 'No users match your search' : 'No users pending moderation'}</p>
                                             <p className="text-sm mt-1">All registrations have been processed</p>
                                         </div>
                                     </td>
@@ -358,11 +444,17 @@ export function PendingUsers() {
                                                     {user.role}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`capitalize px-2.5 py-1 rounded-full text-xs font-medium ${user.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                                    }`}>
+                                                    {user.status}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
                                                 <div className="flex gap-2 justify-end">
                                                     <Button
-                                                        onClick={(e) => handleApprove(user.id, e)}
-                                                        disabled={actionLoading === user.id}
+                                                        onClick={(e) => openApproveModal({ id: user.id, name: user.name }, e)}
+                                                        disabled={actionLoading === user.id || actionLoading === 'approving'}
                                                         variant="success"
                                                         size="sm"
                                                         className="flex items-center gap-1"
@@ -373,7 +465,7 @@ export function PendingUsers() {
                                                         {actionLoading === user.id ? '...' : 'Approve'}
                                                     </Button>
                                                     <Button
-                                                        onClick={(e) => handleReject(user.id, e)}
+                                                        onClick={(e) => openRejectModal(user.id, e)}
                                                         disabled={actionLoading === user.id}
                                                         variant="danger"
                                                         size="sm"
@@ -413,15 +505,15 @@ export function PendingUsers() {
                                                             <div className="flex flex-col gap-2">
                                                                 <Button
                                                                     variant="success"
-                                                                    onClick={(e) => handleApprove(user.id, e)}
-                                                                    loading={actionLoading === user.id}
+                                                                    onClick={(e) => openApproveModal({ id: user.id, name: user.name }, e)}
+                                                                    loading={actionLoading === 'approving'}
                                                                     className="w-full justify-center"
                                                                 >
                                                                     Approve Request
                                                                 </Button>
                                                                 <Button
                                                                     variant="danger"
-                                                                    onClick={(e) => handleReject(user.id, e)}
+                                                                    onClick={(e) => openRejectModal(user.id, e)}
                                                                     disabled={actionLoading === user.id}
                                                                     className="w-full justify-center border-red-300"
                                                                 >
@@ -449,6 +541,118 @@ export function PendingUsers() {
                 onPageChange={setPage}
                 onItemsPerPageChange={handleItemsPerPageChange}
             />
+
+            {/* Reject Confirmation Modal */}
+            <Modal
+                isOpen={rejectModal.isOpen}
+                onClose={closeRejectModal}
+                title={rejectModal.isBulk
+                    ? `Reject ${selectedIds.size} User${selectedIds.size > 1 ? 's' : ''}?`
+                    : 'Reject User?'
+                }
+                size="sm"
+            >
+                <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <p className="text-gray-600">
+                        This action cannot be undone. The user(s) will not be able to log in.
+                    </p>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Type <span className="font-bold text-red-600">reject</span> to confirm
+                    </label>
+                    <input
+                        type="text"
+                        value={rejectModal.confirmText}
+                        onChange={(e) => setRejectModal(prev => ({ ...prev, confirmText: e.target.value }))}
+                        placeholder="Type 'reject' here"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                        autoFocus
+                    />
+                </div>
+
+                <div className="flex gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={closeRejectModal}
+                        className="flex-1"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="danger"
+                        onClick={confirmReject}
+                        loading={actionLoading === 'rejecting'}
+                        disabled={rejectModal.confirmText.toLowerCase() !== 'reject'}
+                        className="flex-1"
+                    >
+                        Reject User{rejectModal.isBulk && selectedIds.size > 1 ? 's' : ''}
+                    </Button>
+                </div>
+            </Modal>
+
+            {/* Approve Confirmation Modal */}
+            <Modal
+                isOpen={approveModal.isOpen}
+                onClose={closeApproveModal}
+                title={approveModal.isBulk
+                    ? `Approve ${selectedIds.size} User${selectedIds.size > 1 ? 's' : ''}?`
+                    : `Approve ${approveModal.userName}?`
+                }
+                size="md"
+            >
+                <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <p className="text-gray-600">
+                        This message will be sent to the user via SMS.
+                    </p>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Approval Message (SMS)
+                    </label>
+                    <textarea
+                        value={approveModal.message}
+                        onChange={(e) => setApproveModal(prev => ({ ...prev, message: e.target.value }))}
+                        placeholder="Enter approval message..."
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                        {approveModal.message.length} characters
+                    </p>
+                </div>
+
+                <div className="flex gap-3">
+                    <Button
+                        variant="outline"
+                        onClick={closeApproveModal}
+                        className="flex-1"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="success"
+                        onClick={confirmApprove}
+                        loading={actionLoading === 'approving'}
+                        disabled={!approveModal.message.trim()}
+                        className="flex-1"
+                    >
+                        Approve & Send SMS
+                    </Button>
+                </div>
+            </Modal>
         </div >
     )
 }

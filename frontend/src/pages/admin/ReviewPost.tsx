@@ -75,6 +75,20 @@ export function ReviewPost() {
         }
     }
 
+    const handleDisapprove = async () => {
+        if (!post) return
+        try {
+            setSubmitting(true)
+            await adminService.updatePostStatus(post.id, 'pending')
+            navigate('/dashboard/admin/posts/pending', { state: { message: 'Post disapproved (moved to pending)' } })
+        } catch (err) {
+            console.error('Failed to disapprove:', err)
+            alert('Failed to disapprove post')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     // Helper to parse content safely
     const getPostContent = (): OutputData | null => {
         if (!post) return null
@@ -167,6 +181,14 @@ export function ReviewPost() {
                                     disabled={submitting}
                                 >
                                     Reject
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-center"
+                                    onClick={handleDisapprove}
+                                    disabled={submitting}
+                                >
+                                    Disapprove
                                 </Button>
                             </div>
                         ) : (

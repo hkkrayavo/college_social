@@ -68,8 +68,9 @@ export function LikeButton({ type, id, initialLiked = false, initialCount = 0, s
         <button
             onClick={handleClick}
             disabled={loading}
+            title={liked ? 'Unlike' : 'Like'}
             className={`
-                inline-flex items-center gap-1.5 rounded-full transition-all
+                inline-flex items-center gap-1.5 rounded-full transition-all cursor-pointer
                 ${padding} ${textSize}
                 ${liked
                     ? 'bg-red-50 text-red-600 hover:bg-red-100'

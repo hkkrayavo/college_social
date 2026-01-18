@@ -13,7 +13,7 @@ import { ProfilePage } from './pages/profile'
 import { ROUTES } from './constants'
 
 // Dashboard pages
-import { StudentFeed, EventFeed, EventDetail, StudentGroups, StudentProfile, CreatePost, PostFeed, PostDetail, MyPosts } from './pages/dashboard'
+import { StudentFeed, EventFeed, EventDetail, StudentProfile, CreatePost, PostFeed, PostDetail, MyPosts } from './pages/dashboard'
 import { AdminDashboard, PendingUsers, AllUsers, PendingPosts, ReviewPost, AllPosts, AdminGroups, GroupMembers, AlbumPhotos, AdminEvents, EventAlbums, EventForm, AlbumForm, AdminSettings, AdminGroupTypes } from './pages/admin'
 
 import './index.css'
@@ -48,18 +48,15 @@ function AppRouter() {
                 <Route element={<ProtectedRoute />}>
                     <Route element={<DashboardLayout />}>
                         <Route path="/dashboard/user" element={<StudentFeed />} />
-                        <Route path="/dashboard/posts" element={<PostFeed />} />
-                        <Route path="/dashboard/posts/new" element={<CreatePost />} />
-                        <Route path="/dashboard/posts/:id" element={<PostDetail />} />
-                        <Route path="/dashboard/posts/:id" element={<PostDetail />} />
-                        <Route path="/dashboard/eventfeed" element={<EventFeed />} />
-                        <Route path="/dashboard/events/:eventId" element={<EventDetail />} />
-                        <Route path="/dashboard/groups" element={<StudentGroups />} />
-                        <Route path="/dashboard/profile" element={<StudentProfile />} />
-                        <Route path="/dashboard/my-posts" element={<MyPosts />} />
+                        <Route path="/dashboard/user/posts" element={<PostFeed />} />
+                        <Route path="/dashboard/user/posts/new" element={<CreatePost />} />
+                        <Route path="/dashboard/user/posts/:id" element={<PostDetail />} />
+                        <Route path="/dashboard/user/eventfeed" element={<EventFeed />} />
+                        <Route path="/dashboard/user/events/:eventId" element={<EventDetail />} />
+                        <Route path="/dashboard/user/profile" element={<StudentProfile />} />
+                        <Route path="/dashboard/user/my-posts" element={<MyPosts />} />
                         {/* Legacy redirects */}
                         <Route path="/dashboard/feed" element={<Navigate to="/dashboard/user" replace />} />
-                        <Route path="/dashboard/albums" element={<Navigate to="/dashboard/eventfeed" replace />} />
                     </Route>
                 </Route>
 

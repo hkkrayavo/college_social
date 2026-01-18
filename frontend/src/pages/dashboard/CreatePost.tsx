@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../services/api'
 import Editor from '../../components/shared/Editor'
@@ -7,9 +7,6 @@ import { PostRenderer } from '../../components/shared/PostRenderer'
 import { Button, Modal } from '../../components/common'
 import type { OutputData } from '@editorjs/editorjs'
 
-import { GroupSelector } from '../../components/shared/GroupSelector'
-import type { GroupItem } from '../../services/adminService'
-
 export function CreatePost() {
     const navigate = useNavigate()
     const editorRef = useRef<EditorRef>(null)
@@ -17,24 +14,11 @@ export function CreatePost() {
     const [title, setTitle] = useState('')
     const [content, setContent] = useState<OutputData | null>(null)
     const [tags] = useState<string[]>([])
-    const [groups, setGroups] = useState<GroupItem[]>([])
-    const [selectedGroups, setSelectedGroups] = useState<{ id: string; name: string }[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [showPublishModal, setShowPublishModal] = useState(false)
 
-    // Load user's groups
-    useEffect(() => {
-        const loadGroups = async () => {
-            try {
-                const response = await apiClient.get<{ success: boolean; data: GroupItem[] }>('/groups')
-                setGroups(response.data || [])
-            } catch (err) {
-                console.error('Failed to load groups:', err)
-            }
-        }
-        loadGroups()
-    }, [])
+
 
     const handleContentChange = (data: OutputData) => {
         setContent(data)
@@ -69,10 +53,9 @@ export function CreatePost() {
                 title: title.trim() || null,
                 content: content,
                 tags,
-                groupIds: selectedGroups.map(g => g.id),
             })
 
-            navigate('/dashboard/my-posts', {
+            navigate('/dashboard/user/my-posts', {
                 state: { message: 'Post submitted for approval!' }
             })
             setShowPublishModal(false)
@@ -309,12 +292,11 @@ export function CreatePost() {
                 </p>
             </div>
 
-            {/* Publish Modal */}
             <Modal
                 isOpen={showPublishModal}
                 onClose={() => setShowPublishModal(false)}
-                title="Publish Post"
-                size="2xl"
+                title="Submit Post for Review"
+                size="md"
                 footer={
                     <div className="flex w-full gap-3">
                         <Button
@@ -330,23 +312,25 @@ export function CreatePost() {
                             loading={loading}
                             className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                         >
-                            Confirm Publish
+                            Submit for Review
                         </Button>
                     </div>
                 }
             >
                 <div className="space-y-4">
-                    <p className="text-gray-600">
-                        Select which groups you want to share this post with.
-                        The post will be submitted for approval.
-                    </p>
-
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                        <GroupSelector
-                            selectedGroups={selectedGroups}
-                            onChange={setSelectedGroups}
-                            availableGroups={groups}
-                        />
+                    <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <p className="text-amber-800 font-medium">Post will be reviewed</p>
+                            <p className="text-amber-700 text-sm mt-1">
+                                Your post will be submitted for moderator approval. Once approved, the admin will assign it to the appropriate groups.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-center text-gray-600">
+                        <p>Ready to submit <strong>"{title}"</strong>?</p>
                     </div>
                 </div>
             </Modal>

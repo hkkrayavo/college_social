@@ -3,6 +3,7 @@ import { Op } from 'sequelize'
 import { User, Role, UserRole, Group, Post, SiteSettings } from '../models/index.js'
 import { asyncHandler, createError } from '../middleware/errorHandler.js'
 import { getPaginationParams, paginatedResponse } from '../utils/pagination.js'
+import { smsService } from '../services/sms.service.js'
 
 // GET /api/users/admin/pending - Get pending users
 export const getPendingUsers = asyncHandler(async (req: Request, res: Response) => {
@@ -40,7 +41,12 @@ export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
 
     const where: any = {}
     if (status && status !== 'all') {
-        where.status = status
+        const statusStr = status as string
+        if (statusStr.includes(',')) {
+            where.status = { [Op.in]: statusStr.split(',') }
+        } else {
+            where.status = statusStr
+        }
     }
     if (search) {
         where[Op.or] = [
@@ -94,6 +100,24 @@ export const updateUserStatus = asyncHandler(async (req: Request, res: Response)
         status,
         ...(reason && status === 'rejected' ? { rejectionReason: reason } : {})
     })
+
+    // Send SMS notification based on status
+    if (status === 'approved') {
+        // Use custom message if provided, otherwise use template
+        if (reason) {
+            await smsService.sendSms(user.mobileNumber, reason)
+        } else {
+            await smsService.sendTemplatedSms(user.mobileNumber, 'account_approved', {
+                user_name: user.name,
+                app_name: 'Alumni Portal'
+            })
+        }
+    } else if (status === 'rejected' && reason) {
+        await smsService.sendTemplatedSms(user.mobileNumber, 'account_rejected', {
+            user_name: user.name,
+            reason: reason
+        })
+    }
 
     const message = status === 'approved'
         ? 'User approved successfully'
@@ -178,6 +202,24 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
     res.json({
         success: true,
         message: 'User deleted successfully',
+    })
+})
+
+// GET /api/users/:id/groups - Get groups a user belongs to
+export const getUserGroups = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params
+
+    const user = await User.findByPk(id, {
+        include: [{ model: Group, as: 'groups', attributes: ['id', 'name', 'description'] }],
+    })
+
+    if (!user) {
+        throw createError('User not found', 404)
+    }
+
+    res.json({
+        success: true,
+        groups: (user as any).groups || [],
     })
 })
 

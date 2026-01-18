@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { adminService, type UserItem } from '../../services/adminService'
-import { Pagination, SearchFilter, Button, Avatar } from '../../components/common'
+import { Pagination, SearchFilter, Button, Avatar, Modal } from '../../components/common'
+import { SortableHeader } from '../../components/tables'
+import { GroupSelector } from '../../components/shared/GroupSelector'
+import { useAdminTable, useCrudModal, useDeleteConfirm } from '../../hooks'
+import { getAvatarColor } from '../../utils'
 
+// ===== Types =====
 interface UserFormData {
     name: string
     mobileNumber: string
@@ -9,7 +14,6 @@ interface UserFormData {
     role: string
     status: string
 }
-
 
 const initialFormData: UserFormData = {
     name: '',
@@ -19,208 +23,245 @@ const initialFormData: UserFormData = {
     status: 'approved'
 }
 
-type SortField = 'name' | 'mobileNumber' | 'email' | 'role' | 'createdAt'
-type SortDirection = 'asc' | 'desc'
+// ===== User Form Component =====
+function UserForm({
+    formData,
+    setFormData,
+    mode
+}: {
+    formData: UserFormData
+    setFormData: React.Dispatch<React.SetStateAction<UserFormData>>
+    mode: 'create' | 'edit'
+}) {
+    return (
+        <div className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
+                />
+            </div>
 
-const getAvatarColor = (name: string) => {
-    const colors = [
-        'bg-blue-600',
-        'bg-indigo-600',
-        'bg-purple-600',
-        'bg-pink-600',
-        'bg-rose-600',
-        'bg-amber-600',
-        'bg-emerald-600',
-        'bg-cyan-600',
-        'bg-teal-600'
-    ]
-    const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
-    return colors[index]
+            {mode === 'create' && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number *</label>
+                    <input
+                        type="tel"
+                        required
+                        value={formData.mobileNumber}
+                        onChange={(e) => setFormData(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
+                    />
+                </div>
+            )}
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
+                <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                <select
+                    value={formData.role}
+                    onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
+                >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            {mode === 'edit' && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                        value={formData.status}
+                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
+                    >
+                        <option value="pending">Pending</option>
+                        {formData.status === 'approved' && (
+                            <option value="approved">Approved (current)</option>
+                        )}
+                        {formData.status === 'rejected' && (
+                            <option value="rejected">Rejected (current)</option>
+                        )}
+                    </select>
+                </div>
+            )}
+        </div>
+    )
 }
 
+// ===== User Detail Row Component =====
+function UserDetailRow({ user, onEdit, onDelete }: {
+    user: UserItem
+    onEdit: () => void
+    onDelete: () => void
+}) {
+    return (
+        <tr className="bg-gray-50/80 border-t border-gray-100">
+            <td className="px-6 py-4" />
+            <td colSpan={4} className="px-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Personal Information</h4>
+                        <div className="space-y-2 text-sm">
+                            <p><span className="text-gray-500">Full Name:</span> <span className="font-medium">{user.name}</span></p>
+                            <p><span className="text-gray-500">Mobile:</span> <span className="font-mono">{user.mobileNumber}</span></p>
+                            <p><span className="text-gray-500">Email:</span> {user.email || '—'}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Account Details</h4>
+                        <div className="space-y-2 text-sm">
+                            <p><span className="text-gray-500">Role:</span> <span className="capitalize">{user.role}</span></p>
+                            <p>
+                                <span className="text-gray-500">Status:</span>{' '}
+                                <span className={`capitalize font-medium ${user.status === 'approved' ? 'text-green-700' :
+                                    user.status === 'rejected' ? 'text-red-700' : 'text-amber-700'
+                                    }`}>{user.status}</span>
+                            </p>
+                            <p><span className="text-gray-500">Joined:</span> {new Date(user.createdAt).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Quick Actions</h4>
+                        <div className="flex gap-2">
+                            <Button size="sm" onClick={onEdit}>Edit</Button>
+                            <Button size="sm" variant="danger" onClick={onDelete}>Delete</Button>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    )
+}
+
+// ===== Main Component =====
 export function AllUsers() {
-    const [users, setUsers] = useState<UserItem[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
-    const [totalItems, setTotalItems] = useState(0)
-    const [itemsPerPage, setItemsPerPage] = useState(10)
-    const [search, setSearch] = useState('')
-
-    // Sidebar/Sorting state
-    const [sortField, setSortField] = useState<SortField>('createdAt')
-    const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-
-    // Modal states
-    const [showModal, setShowModal] = useState(false)
-    const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
-    const [formData, setFormData] = useState<UserFormData>(initialFormData)
-    const [editingUserId, setEditingUserId] = useState<string | null>(null)
-    const [submitting, setSubmitting] = useState(false)
-    const [formError, setFormError] = useState<string | null>(null)
-
-    // Delete confirmation
-    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-    const [deleting, setDeleting] = useState(false)
-
-    // Expanded row state
+    // Local state
     const [expandedId, setExpandedId] = useState<string | null>(null)
 
-    // Selection state
-    const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+    // Groups modal state
+    const [groupsModal, setGroupsModal] = useState<{
+        isOpen: boolean
+        userId: string | null
+        userName: string
+        selectedGroups: { id: string; name: string }[]
+        saving: boolean
+    }>({ isOpen: false, userId: null, userName: '', selectedGroups: [], saving: false })
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelectedUsers(users.map(u => u.id))
-        } else {
-            setSelectedUsers([])
-        }
-    }
+    // Use the new hooks
+    const table = useAdminTable<UserItem>({
+        fetchData: (page, limit, search) => adminService.getAllUsers(page, limit, undefined, search),
+        defaultSort: { field: 'createdAt', direction: 'desc' }
+    })
 
-    const handleSelectUser = (id: string) => {
-        setSelectedUsers(prev => {
-            if (prev.includes(id)) {
-                return prev.filter(userId => userId !== id)
-            } else {
-                return [...prev, id]
-            }
-        })
-    }
+    const modal = useCrudModal<UserFormData>({
+        initialData: initialFormData,
+        onCreate: async (data) => {
+            await adminService.createUser({
+                name: data.name,
+                mobileNumber: data.mobileNumber,
+                email: data.email,
+                role: data.role
+            })
+        },
+        onUpdate: async (id, data) => {
+            await adminService.updateUser(id, {
+                name: data.name,
+                email: data.email,
+                role: data.role,
+                status: data.status
+            })
+        },
+        onSuccess: table.refresh
+    })
 
+    const deleteConfirm = useDeleteConfirm()
+
+    // Bulk delete handler
     const handleBulkDelete = async () => {
-        if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} users?`)) return
-        setDeleting(true)
+        if (!window.confirm(`Are you sure you want to delete ${table.selectedCount} users?`)) return
         try {
-            await Promise.all(selectedUsers.map(id => adminService.deleteUser(id)))
-            setSelectedUsers([])
-            loadUsers()
-        } catch (err) {
-            setError('Failed to delete some users')
-        } finally {
-            setDeleting(false)
+            await Promise.all(Array.from(table.selectedIds).map(id => adminService.deleteUser(id)))
+            table.refresh()
+        } catch {
+            // Error handled by table hook
         }
-    }
-
-    const loadUsers = useCallback(async () => {
-        try {
-            setLoading(true)
-            const response = await adminService.getAllUsers(page, itemsPerPage, undefined, search)
-            setUsers(response.data)
-            setTotalPages(response.pagination?.totalPages || 1)
-            setTotalItems(response.pagination?.total || 0)
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load users')
-        } finally {
-            setLoading(false)
-        }
-    }, [page, itemsPerPage, search])
-
-    useEffect(() => {
-        loadUsers()
-    }, [loadUsers])
-
-    const handleItemsPerPageChange = (perPage: number) => {
-        setItemsPerPage(perPage)
-        setPage(1)
-    }
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
-        } else {
-            setSortField(field)
-            setSortDirection('asc')
-        }
-    }
-
-    const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field) {
-            return (
-                <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-            )
-        }
-        return sortDirection === 'asc' ? (
-            <svg className="w-4 h-4 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-            </svg>
-        ) : (
-            <svg className="w-4 h-4 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-        )
-    }
-
-    // Modal Handlers
-    const handleCreateUser = () => {
-        setFormData(initialFormData)
-        setEditingUserId(null)
-        setModalMode('create')
-        setFormError(null)
-        setShowModal(true)
     }
 
     const handleEditUser = (user: UserItem) => {
-        setFormData({
+        modal.openEdit(user.id, {
             name: user.name,
             mobileNumber: user.mobileNumber,
             email: user.email || '',
             role: user.role,
             status: user.status
         })
-        setEditingUserId(user.id)
-        setModalMode('edit')
-        setFormError(null)
-        setShowModal(true)
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setFormError(null)
-        setSubmitting(true)
+    // Groups modal handlers
+    const openGroupsModal = async (user: UserItem) => {
+        setGroupsModal({
+            isOpen: true,
+            userId: user.id,
+            userName: user.name,
+            selectedGroups: [],
+            saving: false
+        })
 
         try {
-            if (modalMode === 'create') {
-                await adminService.createUser({
-                    name: formData.name,
-                    mobileNumber: formData.mobileNumber,
-                    email: formData.email,
-                    role: formData.role
-                })
-            } else if (editingUserId) {
-                await adminService.updateUser(editingUserId, {
-                    name: formData.name,
-                    email: formData.email,
-                    role: formData.role,
-                    status: formData.status
-                })
-            }
-            setShowModal(false)
-            loadUsers()
+            // Fetch groups this user already belongs to
+            const currentGroups = await adminService.getUserGroups(user.id)
+            setGroupsModal(prev => ({
+                ...prev,
+                selectedGroups: currentGroups.map(g => ({ id: g.id, name: g.name }))
+            }))
         } catch (err) {
-            setFormError(err instanceof Error ? err.message : 'Operation failed')
-        } finally {
-            setSubmitting(false)
+            console.error('Failed to fetch user groups:', err)
         }
     }
 
-    const handleDelete = async (userId: string) => {
-        setDeleting(true)
+    const closeGroupsModal = () => {
+        setGroupsModal({ isOpen: false, userId: null, userName: '', selectedGroups: [], saving: false })
+    }
+
+    const handleGroupsChange = (groups: { id: string; name: string }[]) => {
+        setGroupsModal(prev => ({ ...prev, selectedGroups: groups }))
+    }
+
+    const saveGroupsSelection = async () => {
+        if (!groupsModal.userId || groupsModal.selectedGroups.length === 0) return
+
+        setGroupsModal(prev => ({ ...prev, saving: true }))
         try {
-            await adminService.deleteUser(userId)
-            setDeleteConfirm(null)
-            loadUsers()
+            await adminService.addUserToGroups(groupsModal.userId, groupsModal.selectedGroups.map(g => g.id))
+            closeGroupsModal()
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to delete user')
+            console.error('Failed to add user to groups:', err)
+            alert('Failed to add user to groups')
         } finally {
-            setDeleting(false)
+            setGroupsModal(prev => ({ ...prev, saving: false }))
         }
     }
+
+    const sortedUsers = table.getSortedItems()
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h1 className="text-xl font-bold text-navy">Users</h1>
@@ -228,12 +269,12 @@ export function AllUsers() {
                 </div>
                 <div className="flex items-center gap-4">
                     <SearchFilter
-                        value={search}
-                        onChange={setSearch}
+                        value={table.search}
+                        onChange={table.setSearch}
                         placeholder="Search users..."
                     />
                     <Button
-                        onClick={handleCreateUser}
+                        onClick={modal.openCreate}
                         leftIcon={
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -245,27 +286,30 @@ export function AllUsers() {
                 </div>
             </div>
 
-            {error && (
+            {/* Error */}
+            {table.error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-                    {error}
-                    <Button onClick={loadUsers} variant="ghost" className="ml-4 underline text-red-700 hover:text-red-800 hover:bg-red-100 p-0 h-auto">Retry</Button>
+                    {table.error}
+                    <Button onClick={table.refresh} variant="ghost" className="ml-4 underline">Retry</Button>
                 </div>
             )}
 
-            {/* Users Table */}
-            {selectedUsers.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-                    <span className="text-amber-800 font-medium">{selectedUsers.length} users selected</span>
+            {/* Bulk Actions */}
+            {table.selectedCount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
+                    <span className="text-amber-800 font-medium">{table.selectedCount} users selected</span>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setSelectedUsers([])} className="text-amber-700 hover:text-amber-900 hover:bg-amber-100">
+                        <Button size="sm" variant="ghost" onClick={table.clearSelection} className="text-amber-700">
                             Clear Selection
                         </Button>
-                        <Button size="sm" variant="danger" onClick={handleBulkDelete} loading={deleting}>
+                        <Button size="sm" variant="danger" onClick={handleBulkDelete}>
                             Delete Selected
                         </Button>
                     </div>
                 </div>
             )}
+
+            {/* Table */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -274,83 +318,51 @@ export function AllUsers() {
                                 <th className="px-6 py-4 w-4">
                                     <input
                                         type="checkbox"
-                                        className="rounded border-gray-300 text-navy focus:ring-navy w-4 h-4 cursor-pointer"
-                                        checked={users.length > 0 && selectedUsers.length === users.length}
-                                        onChange={handleSelectAll}
+                                        className="rounded border-gray-300 text-navy focus:ring-navy w-4 h-4"
+                                        checked={table.isAllSelected && sortedUsers.length > 0}
+                                        onChange={table.selectAll}
                                     />
                                 </th>
-                                <th
-                                    onClick={() => handleSort('name')}
-                                    className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        Name
-                                        <SortIcon field="name" />
-                                    </div>
-                                </th>
-                                <th
-                                    onClick={() => handleSort('mobileNumber')}
-                                    className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        Phone / Email
-                                        <SortIcon field="mobileNumber" />
-                                    </div>
-                                </th>
-                                <th
-                                    onClick={() => handleSort('role')}
-                                    className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        Role
-                                        <SortIcon field="role" />
-                                    </div>
-                                </th>
-                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Actions
-                                </th>
+                                <SortableHeader label="Name" field="name" currentField={table.sortField} direction={table.sortDirection} onSort={table.handleSort} />
+                                <SortableHeader label="Phone / Email" field="mobileNumber" currentField={table.sortField} direction={table.sortDirection} onSort={table.handleSort} />
+                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                <th className="text-left px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {loading ? (
+                            {table.loading ? (
                                 [...Array(5)].map((_, i) => (
                                     <tr key={i} className="animate-pulse">
+                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-4" /></td>
                                         <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32" /></td>
                                         <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-48" /></td>
                                         <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-16" /></td>
-                                        <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-16" /></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24" /></td>
+                                        <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32" /></td>
                                     </tr>
                                 ))
-                            ) : users.length === 0 ? (
+                            ) : sortedUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center">
-                                        <div className="text-gray-400">
-                                            <p className="text-lg font-medium">{search ? 'No users match your search' : 'No users found'}</p>
-                                        </div>
+                                    <td colSpan={5} className="px-6 py-16 text-center text-gray-400">
+                                        {table.search ? 'No users match your search' : 'No users found'}
                                     </td>
                                 </tr>
                             ) : (
-                                users.map((user, index) => (
+                                sortedUsers.map((user) => (
                                     <>
                                         <tr
                                             key={user.id}
-                                            className={`
-                                                transition-all duration-150 cursor-pointer
-                                                ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-                                                hover:bg-navy/5
-                                            `}
+                                            className={`transition-all cursor-pointer border-l-4 ${user.status === 'approved' ? 'bg-green-50/50 border-green-500 hover:bg-green-100/50' :
+                                                user.status === 'rejected' ? 'bg-red-50/50 border-red-500 hover:bg-red-100/50' :
+                                                    'bg-amber-50/50 border-amber-500 hover:bg-amber-100/50'
+                                                }`}
                                             onClick={() => setExpandedId(expandedId === user.id ? null : user.id)}
                                         >
                                             <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
-                                                    className="rounded border-gray-300 text-navy focus:ring-navy w-4 h-4 cursor-pointer"
-                                                    checked={selectedUsers.includes(user.id)}
-                                                    onChange={() => handleSelectUser(user.id)}
+                                                    className="rounded border-gray-300 text-navy focus:ring-navy w-4 h-4"
+                                                    checked={table.isSelected(user.id)}
+                                                    onChange={() => table.toggleSelect(user.id)}
                                                 />
                                             </td>
                                             <td className="px-6 py-4">
@@ -361,85 +373,52 @@ export function AllUsers() {
                                                         size="md"
                                                         fallbackClassName={`${getAvatarColor(user.name || 'User')} text-white border-2 border-white`}
                                                     />
-                                                    <div>
-                                                        <div className="font-medium text-gray-800 text-sm">{user.name || 'Unknown User'}</div>
-                                                        <div className="text-xs text-gray-500">Joined {new Date(user.createdAt).toLocaleDateString()}</div>
-                                                    </div>
+                                                    <span className="font-medium text-gray-900">{user.name}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-sm text-gray-900 font-mono">{user.mobileNumber}</div>
-                                                <div className="text-xs text-gray-500">{user.email || 'No email'}</div>
+                                                <div className="text-sm">
+                                                    <p className="font-mono text-gray-800">{user.mobileNumber}</p>
+                                                    {user.email && <p className="text-gray-500">{user.email}</p>}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="capitalize px-2.5 py-1 bg-navy/10 text-navy rounded-full text-xs font-medium">
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`capitalize px-2.5 py-1 rounded-full text-xs font-medium ${user.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                                    user.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                        'bg-amber-100 text-amber-800'
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${user.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                    user.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                                                     }`}>
                                                     {user.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleEditUser(user)}
-                                                        className="p-2 text-gray-500 hover:text-navy hover:bg-navy/10 rounded-lg transition-colors"
-                                                        title="Edit user"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" variant="success" onClick={() => openGroupsModal(user)}>
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        </svg>
+                                                        Groups
+                                                    </Button>
+                                                    <Button size="sm" variant="primary" onClick={() => handleEditUser(user)}>
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                         </svg>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteConfirm(user.id)}
-                                                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete user"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        Edit
+                                                    </Button>
+                                                    <Button size="sm" variant="danger" onClick={() => deleteConfirm.requestDelete(user.id)}>
+                                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                    </button>
+                                                        Delete
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
                                         {expandedId === user.id && (
-                                            <tr key={`${user.id}-details`} className="bg-gray-50 border-l-4 border-indigo-500">
-                                                <td className="px-6"></td>
-                                                <td colSpan={5} className="px-6 py-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                        <div>
-                                                            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Personal Information</h4>
-                                                            <div className="space-y-2 text-sm">
-                                                                <p><span className="text-gray-500">Full Name:</span> <span className="font-medium">{user.name}</span></p>
-                                                                <p><span className="text-gray-500">Mobile:</span> <span className="font-mono">{user.mobileNumber}</span></p>
-                                                                <p><span className="text-gray-500">Email:</span> {user.email || '—'}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Account Details</h4>
-                                                            <div className="space-y-2 text-sm">
-                                                                <p><span className="text-gray-500">Role:</span> <span className="capitalize">{user.role}</span></p>
-                                                                <p><span className="text-gray-500">Status:</span> <span className={`capitalize font-medium ${user.status === 'approved' ? 'text-green-700' :
-                                                                    user.status === 'rejected' ? 'text-red-700' : 'text-amber-700'
-                                                                    }`}>{user.status}</span></p>
-                                                                <p><span className="text-gray-500">Joined:</span> {new Date(user.createdAt).toLocaleDateString()}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Quick Actions</h4>
-                                                            <div className="flex flex-col gap-2">
-                                                                <Button size="sm" onClick={() => handleEditUser(user)} className="w-full justify-center">Edit Details</Button>
-                                                                <Button size="sm" variant="danger" onClick={() => setDeleteConfirm(user.id)} className="w-full justify-center">Delete User</Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            <UserDetailRow
+                                                key={`${user.id}-detail`}
+                                                user={user}
+                                                onEdit={() => handleEditUser(user)}
+                                                onDelete={() => deleteConfirm.requestDelete(user.id)}
+                                            />
                                         )}
                                     </>
                                 ))
@@ -449,140 +428,86 @@ export function AllUsers() {
                 </div>
             </div>
 
+            {/* Pagination */}
             <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                totalItems={totalItems}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setPage}
-                onItemsPerPageChange={handleItemsPerPageChange}
+                currentPage={table.page}
+                totalPages={table.totalPages}
+                totalItems={table.totalItems}
+                itemsPerPage={table.itemsPerPage}
+                onPageChange={table.setPage}
+                onItemsPerPageChange={table.setItemsPerPage}
             />
 
             {/* Create/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-                        <div className="p-6 border-b border-gray-100">
-                            <h2 className="text-xl font-bold text-navy">
-                                {modalMode === 'create' ? 'Register New User' : 'Edit User'}
-                            </h2>
+            <Modal isOpen={modal.isOpen} onClose={modal.close} title={modal.mode === 'create' ? 'Register New User' : 'Edit User'}>
+                <form onSubmit={(e) => { e.preventDefault(); modal.submit() }} className="space-y-4">
+                    {modal.error && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                            {modal.error}
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            {formError && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-                                    {formError}
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
-                                />
-                            </div>
-
-                            {modalMode === 'create' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number *</label>
-                                    <input
-                                        type="tel"
-                                        required
-                                        value={formData.mobileNumber}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, mobileNumber: e.target.value }))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
-                                    />
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
-                                >
-                                    <option value="user">User</option>
-                                    <option value="admin">Admin</option>
-                                </select>
-                            </div>
-
-                            {modalMode === 'edit' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select
-                                        value={formData.status}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-navy focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="pending">Pending</option>
-                                        <option value="approved">Approved</option>
-                                        <option value="rejected">Rejected</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="flex gap-3">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setShowModal(false)}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    loading={submitting}
-                                    className="flex-1"
-                                >
-                                    {modalMode === 'create' ? 'Create User' : 'Save Changes'}
-                                </Button>
-                            </div>
-                        </form>
+                    )}
+                    <UserForm formData={modal.formData} setFormData={modal.setFormData} mode={modal.mode} />
+                    <div className="flex gap-3 pt-4">
+                        <Button type="button" variant="outline" onClick={modal.close} className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button type="submit" loading={modal.submitting} className="flex-1">
+                            {modal.mode === 'create' ? 'Create User' : 'Save Changes'}
+                        </Button>
                     </div>
-                </div>
-            )}
+                </form>
+            </Modal>
 
             {/* Delete Confirmation Modal */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">Delete User?</h3>
-                        <p className="text-gray-600 mb-6">This will permanently remove the user account. This action cannot be undone.</p>
-                        <div className="flex gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => setDeleteConfirm(null)}
-                                className="flex-1"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={() => handleDelete(deleteConfirm)}
-                                loading={deleting}
-                                className="flex-1"
-                            >
-                                Delete
-                            </Button>
-                        </div>
+            <Modal isOpen={deleteConfirm.confirmingId !== null} onClose={deleteConfirm.cancelDelete} title="Delete User?">
+                <p className="text-gray-600 mb-6">This will permanently remove the user account. This action cannot be undone.</p>
+                <div className="flex gap-3">
+                    <Button variant="outline" onClick={deleteConfirm.cancelDelete} className="flex-1">
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="danger"
+                        onClick={() => deleteConfirm.confirmDelete(async (id) => {
+                            await adminService.deleteUser(id)
+                            table.refresh()
+                        })}
+                        loading={deleteConfirm.deleting}
+                        className="flex-1"
+                    >
+                        Delete
+                    </Button>
+                </div>
+            </Modal>
+
+            {/* Groups Selection Modal */}
+            <Modal
+                isOpen={groupsModal.isOpen}
+                onClose={closeGroupsModal}
+                title={`Add ${groupsModal.userName} to Groups`}
+                size="2xl"
+            >
+                <div className="space-y-4">
+                    <GroupSelector
+                        selectedGroups={groupsModal.selectedGroups}
+                        onChange={handleGroupsChange}
+                    />
+
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <Button variant="outline" onClick={closeGroupsModal} className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="success"
+                            onClick={saveGroupsSelection}
+                            loading={groupsModal.saving}
+                            disabled={groupsModal.selectedGroups.length === 0}
+                            className="flex-1"
+                        >
+                            Add to {groupsModal.selectedGroups.length} Group{groupsModal.selectedGroups.length !== 1 ? 's' : ''}
+                        </Button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     )
 }

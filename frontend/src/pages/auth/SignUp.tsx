@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import type { UserRole, SignUpFormData, SignUpFormErrors } from '../../types'
 import { authService } from '../../services/authService'
@@ -9,7 +9,6 @@ const SignUp = () => {
     const [currentStep, setCurrentStep] = useState(1)
     const [isLoading, setIsLoading] = useState(false)
     const [apiError, setApiError] = useState<string | null>(null)
-    const [countdown, setCountdown] = useState(5)
     const [formData, setFormData] = useState<SignUpFormData>({
         phone: '',
         otp: '',
@@ -23,16 +22,6 @@ const SignUp = () => {
     const [errors, setErrors] = useState<SignUpFormErrors>({})
 
     const totalSteps = 4 // 3 form steps + success
-
-    // Countdown for redirect on success step
-    useEffect(() => {
-        if (currentStep === 4 && countdown > 0) {
-            const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-            return () => clearTimeout(timer)
-        } else if (currentStep === 4 && countdown === 0) {
-            navigate('/login')
-        }
-    }, [currentStep, countdown, navigate])
 
     const updateFormData = (field: keyof SignUpFormData, value: string | boolean | UserRole) => {
         setFormData(prev => ({ ...prev, [field]: value }))
@@ -82,7 +71,8 @@ const SignUp = () => {
                 if (!formData.name.trim()) {
                     newErrors.name = 'Name is required'
                 }
-                if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
+                // Email is optional - only validate format if provided
+                if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
                     newErrors.email = 'Please enter a valid email'
                 }
                 if (!formData.agreedToTerms) {
@@ -104,7 +94,7 @@ const SignUp = () => {
         try {
             await authService.signUp({
                 name: formData.name,
-                email: formData.email,
+                email: formData.email || undefined, // Send undefined if empty
                 phone: formData.phone,
                 role: 'user',
             })
@@ -285,7 +275,9 @@ const SignUp = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Email <span className="text-gray-400 font-normal">(Optional)</span>
+                                </label>
                                 <input
                                     type="email"
                                     value={formData.email}
@@ -336,19 +328,15 @@ const SignUp = () => {
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800">Account Created!</h2>
                             <p className="text-gray-500 mt-2">
-                                Your registration is complete. Please wait for admin approval before you can log in.
+                                Your registration is complete.
                             </p>
                         </div>
 
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        {/* <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                             <p className="text-amber-800 text-sm">
                                 <strong>Note:</strong> You will receive a notification once your account is approved.
                             </p>
-                        </div>
-
-                        <p className="text-gray-400 text-sm">
-                            Redirecting to login in {countdown} seconds...
-                        </p>
+                        </div> */}
 
                         <Button
                             onClick={() => navigate('/login')}

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { Op, literal } from 'sequelize'
-import { User, Group, Post, PostMedia, PostGroup, Role, Like, Comment, UserGroup } from '../models/index.js'
+import { User, Group, Post, PostMedia, PostGroup, Like, Comment, UserGroup } from '../models/index.js'
 import { asyncHandler, createError } from '../middleware/errorHandler.js'
 import { getPaginationParams, paginatedResponse } from '../utils/pagination.js'
 import { storageService } from '../services/storageService.js'
@@ -56,10 +56,14 @@ export const getPosts = asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Admin: View all posts or filter by status
-    if (isAdmin && (status === 'pending' || req.query.all === 'true')) {
+    if (isAdmin && (status || req.query.all === 'true')) {
         const where: any = {}
         if (status && status !== 'all') {
-            where.status = status
+            if ((status as string).includes(',')) {
+                where.status = { [Op.in]: (status as string).split(',') }
+            } else {
+                where.status = status
+            }
         }
 
         const { count, rows } = await Post.findAndCountAll({
@@ -238,21 +242,13 @@ export const createPost = asyncHandler(async (req: Request, res: Response) => {
         throw createError('Post content is required', 400)
     }
 
-    // Check if user can post without approval
-    const user = await User.findByPk(userId, {
-        include: [{ model: Role, as: 'roles' }],
-    })
-
-    const canPostWithoutApproval = (user as any).roles?.some(
-        (role: Role) => role.canPostWithoutApproval
-    )
-
+    // All posts go to pending - admin assigns groups during approval
     const post = await Post.create({
         title: title || null,
         content: contentStr,
         authorId: userId!,
         isPublic,
-        status: canPostWithoutApproval ? 'approved' : 'pending',
+        status: 'pending',
     })
 
     // Link to groups
@@ -267,9 +263,7 @@ export const createPost = asyncHandler(async (req: Request, res: Response) => {
 
     res.status(201).json({
         success: true,
-        message: canPostWithoutApproval
-            ? 'Post created successfully'
-            : 'Post submitted for approval',
+        message: 'Post submitted for approval',
         post: {
             id: post.id,
             title: post.title,
@@ -504,12 +498,12 @@ export const getPostComments = asyncHandler(async (req: Request, res: Response) 
                 attributes: ['id', 'name', 'profilePictureUrl'],
             },
         ],
-        order: [['createdAt', 'ASC']],
+        order: [['createdAt', 'DESC']],
     })
 
     res.json({
         success: true,
-        data: comments.map(comment => ({
+        comments: comments.map(comment => ({
             id: comment.id,
             content: comment.content,
             author: (comment as any).author,
@@ -565,7 +559,7 @@ export const addComment = asyncHandler(async (req: Request, res: Response) => {
     res.status(201).json({
         success: true,
         message: 'Comment added',
-        data: {
+        comment: {
             id: comment.id,
             content: comment.content,
             author: (commentWithAuthor as any)?.author,

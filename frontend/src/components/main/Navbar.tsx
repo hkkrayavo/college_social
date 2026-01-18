@@ -1,10 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+
 const Navbar = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [logoUrl, setLogoUrl] = useState<string>('')
     const { user, isAuthenticated } = useAuth()
+
+    useEffect(() => {
+        fetch(`${API_URL}/users/settings/site_logo`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.value) {
+                    setLogoUrl(data.value)
+                }
+            })
+            .catch(console.error)
+    }, [])
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 bg-navy border-b border-gold/20 shadow-lg">
@@ -12,9 +26,13 @@ const Navbar = () => {
                 <div className="flex justify-between items-center h-16">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-2 group">
-                        <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center transition-transform group-hover:scale-105">
-                            <span className="text-navy font-bold text-lg">C</span>
-                        </div>
+                        {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-full object-cover bg-white" />
+                        ) : (
+                            <div className="w-9 h-9 rounded-full bg-gold flex items-center justify-center transition-transform group-hover:scale-105">
+                                <span className="text-navy font-bold text-lg">C</span>
+                            </div>
+                        )}
                         <span className="text-xl font-serif font-bold text-white">College</span>
                     </Link>
 

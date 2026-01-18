@@ -7,6 +7,7 @@ import { seedDatabase } from './config/seed.js'
 import { apiLimiter, errorHandler, notFoundHandler } from './middleware/index.js'
 import routes from './routes/index.js'
 import { initializeSocket } from './socket/index.js'
+import { smsService } from './services/sms.service.js'
 
 // Import models to initialize associations
 import './models/index.js'
@@ -75,6 +76,9 @@ async function startServer() {
 
         // Seed database with initial data
         await seedDatabase()
+
+        // Seed SMS templates
+        await smsService.seedDefaultTemplates()
 
         // Initialize Socket.io
         initializeSocket(httpServer)

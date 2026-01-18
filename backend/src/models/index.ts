@@ -18,6 +18,7 @@ import { Comment } from './Comment.js'
 import { Like } from './Like.js'
 import { Notification } from './Notification.js'
 import { SiteSettings } from './SiteSettings.js'
+import { SmsTemplate } from './SmsTemplate.js'
 
 // ==========================================
 // Define Associations
@@ -110,4 +111,5 @@ export {
     Like,
     Notification,
     SiteSettings,
+    SmsTemplate,
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { feedService, type AlbumDetail, type AlbumWithMedia } from '../../services/feedService'
 import { LikeButton } from '../../components/shared/LikeButton'
+import { LikersList } from '../../components/shared/LikersList'
 import { CommentSection } from '../../components/shared/CommentSection'
 import { getMediaUrl } from '../../utils/helpers'
 import { apiClient } from '../../services/api'
@@ -35,9 +36,11 @@ export function EventDetail() {
     const [viewerLoading, setViewerLoading] = useState(false)
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
     const [showComments, setShowComments] = useState(false)
+    const [showLikers, setShowLikers] = useState(false)
 
     // Dynamic counts
     const [eventCommentsCount, setEventCommentsCount] = useState(0)
+    const [likersKey, setLikersKey] = useState(0)
 
     useEffect(() => {
         if (eventId) {
@@ -144,7 +147,7 @@ export function EventDetail() {
             <div className="max-w-4xl mx-auto text-center py-12">
                 <div className="text-5xl mb-4">😕</div>
                 <h2 className="text-xl font-medium text-gray-700">{error || 'Event not found'}</h2>
-                <Link to="/dashboard/eventfeed" className="mt-4 inline-block text-navy hover:underline">
+                <Link to="/dashboard/user/eventfeed" className="mt-4 inline-block text-navy hover:underline">
                     ← Back to Event Feed
                 </Link>
             </div>
@@ -154,7 +157,7 @@ export function EventDetail() {
     return (
         <div className="max-w-4xl mx-auto">
             {/* Back Link */}
-            <Link to="/dashboard/eventfeed" className="inline-flex items-center gap-1 text-gray-500 hover:text-navy mb-6 transition-colors">
+            <Link to="/dashboard/user/eventfeed" className="inline-flex items-center gap-1 text-gray-500 hover:text-navy mb-6 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -209,21 +212,40 @@ export function EventDetail() {
                 )}
 
                 {/* Event Interactions */}
-                <div className="mt-6 pt-6 border-t border-gray-100 flex items-center gap-4">
+                <div className="mt-6 pt-6 border-t border-gray-100 flex items-center gap-3">
                     <LikeButton
                         type="events"
                         id={event.id}
                         initialLiked={event.liked}
                         initialCount={event.likesCount}
                         size="md"
+                        onStateChange={() => setLikersKey(prev => prev + 1)}
                     />
-                    <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                    {/* View Likers Button */}
+                    <button
+                        onClick={() => setShowLikers(!showLikers)}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${showLikers ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'}`}
+                        title="View who liked"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer" title="Comments">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
                         <span>{eventCommentsCount} Comments</span>
                     </button>
                 </div>
+
+                {/* Likers List */}
+                {showLikers && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <LikersList key={likersKey} type="events" id={event.id} compact={false} />
+                    </div>
+                )}
             </div>
 
             {/* Event Comments */}

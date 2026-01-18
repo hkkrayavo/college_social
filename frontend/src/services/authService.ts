@@ -72,6 +72,21 @@ export const authService = {
         return response.user
     },
 
+    // Check account status (exists and approval status)
+    async checkAccountStatus(phone: string): Promise<{
+        exists: boolean
+        status: 'pending' | 'approved' | 'rejected' | null
+        message: string
+    }> {
+        const response = await apiClient.post<{
+            success: boolean
+            exists: boolean
+            status: 'pending' | 'approved' | 'rejected' | null
+            message: string
+        }>('/auth/check-status', { mobileNumber: phone })
+        return response
+    },
+
     // Send OTP to phone
     async sendOtp(phone: string): Promise<void> {
         await apiClient.post('/auth/request-otp', { mobileNumber: phone })
