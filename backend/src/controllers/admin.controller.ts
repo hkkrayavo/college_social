@@ -113,10 +113,8 @@ export const updateUserStatus = asyncHandler(async (req: Request, res: Response)
             })
         }
     } else if (status === 'rejected' && reason) {
-        await smsService.sendTemplatedSms(user.mobileNumber, 'account_rejected', {
-            user_name: user.name,
-            reason: reason
-        })
+        // Send custom rejection message directly (same as approval)
+        await smsService.sendSms(user.mobileNumber, reason)
     }
 
     const message = status === 'approved'

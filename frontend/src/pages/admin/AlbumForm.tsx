@@ -56,9 +56,19 @@ export function AlbumForm() {
                     setEventInfo(album.event)
                 }
             } else if (eventId) {
-                // Creating: load event info
+                // Creating: load event info and inherit groups from event
                 const event = await adminService.getEvent(eventId)
                 setEventInfo({ id: event.id, name: event.name, date: event.date })
+
+                // Pre-populate with event's groups
+                const eventGroups = event.groups || []
+                if (eventGroups.length > 0) {
+                    setFormData(prev => ({
+                        ...prev,
+                        groupIds: eventGroups.map(g => g.id)
+                    }))
+                    setSelectedGroups(eventGroups.map(g => ({ id: g.id, name: g.name })))
+                }
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -246,6 +256,16 @@ export function AlbumForm() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Info about inherited groups */}
+                        {!isEditing && eventInfo && (
+                            <p className="text-sm text-blue-600 bg-blue-50 p-2 rounded-lg mb-3 flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Groups inherited from event "{eventInfo.name}". You can add or remove groups below.
+                            </p>
+                        )}
 
                         {/* Selected Groups as Chips */}
                         {selectedGroups.length > 0 && (

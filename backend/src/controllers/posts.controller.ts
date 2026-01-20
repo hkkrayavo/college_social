@@ -226,6 +226,9 @@ export const getPostById = asyncHandler(async (req: Request, res: Response) => {
 // POST /api/posts - Create a post
 export const createPost = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.id
+    const userRoles = req.user?.roles || []
+    const isAdmin = userRoles.includes('admin') || userRoles.includes('super_admin')
+
     let { title, content, groupIds, isPublic } = req.body
 
     // Auto-set visibility:
@@ -242,13 +245,17 @@ export const createPost = asyncHandler(async (req: Request, res: Response) => {
         throw createError('Post content is required', 400)
     }
 
-    // All posts go to pending - admin assigns groups during approval
+    // Admin posts with groups are auto-approved (direct publishing)
+    // Regular user posts go to pending for review
+    const shouldAutoApprove = isAdmin && groupIds && Array.isArray(groupIds) && groupIds.length > 0
+
     const post = await Post.create({
         title: title || null,
         content: contentStr,
         authorId: userId!,
         isPublic,
-        status: 'pending',
+        status: shouldAutoApprove ? 'approved' : 'pending',
+        ...(shouldAutoApprove && { reviewedBy: userId, reviewedAt: new Date() }),
     })
 
     // Link to groups
@@ -263,7 +270,7 @@ export const createPost = asyncHandler(async (req: Request, res: Response) => {
 
     res.status(201).json({
         success: true,
-        message: 'Post submitted for approval',
+        message: shouldAutoApprove ? 'Post published successfully' : 'Post submitted for approval',
         post: {
             id: post.id,
             title: post.title,

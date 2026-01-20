@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middleware/index.js'
-import { signup, getMe, updateMe, uploadProfilePicture } from '../controllers/users.controller.js'
+import { signup, getMe, updateMe, uploadProfilePicture, getMyStats } from '../controllers/users.controller.js'
 import { profilePictureUpload } from '../config/multer.js'
 import {
     getAllUsers,
@@ -32,6 +32,9 @@ router.get('/me', authenticate, getMe)
 
 // PATCH /api/users/me - Update own profile
 router.patch('/me', authenticate, updateMe)
+
+// GET /api/users/me/stats - Get current user's activity stats
+router.get('/me/stats', authenticate, getMyStats)
 
 // POST /api/users/me/profile-picture - Upload profile picture
 router.post(

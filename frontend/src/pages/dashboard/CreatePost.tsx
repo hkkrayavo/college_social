@@ -1,14 +1,19 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../services/api'
+import { useAuth } from '../../hooks/useAuth'
 import Editor from '../../components/shared/Editor'
 import type { EditorRef } from '../../components/shared/Editor'
 import { PostRenderer } from '../../components/shared/PostRenderer'
 import { Button, Modal } from '../../components/common'
+import { GroupSelector } from '../../components/shared/GroupSelector'
 import type { OutputData } from '@editorjs/editorjs'
 
 export function CreatePost() {
     const navigate = useNavigate()
+    const { user } = useAuth()
+    const isAdmin = user?.role === 'admin'
+
     const editorRef = useRef<EditorRef>(null)
     const [mode, setMode] = useState<'edit' | 'preview'>('edit')
     const [title, setTitle] = useState('')
@@ -18,12 +23,14 @@ export function CreatePost() {
     const [error, setError] = useState<string | null>(null)
     const [showPublishModal, setShowPublishModal] = useState(false)
 
+    // Groups state for admin publishing
+    const [selectedGroups, setSelectedGroups] = useState<{ id: string; name: string }[]>([])
+
 
 
     const handleContentChange = (data: OutputData) => {
         setContent(data)
     }
-
 
 
 
@@ -53,10 +60,14 @@ export function CreatePost() {
                 title: title.trim() || null,
                 content: content,
                 tags,
+                // Admin can specify groups for direct publishing
+                ...(isAdmin && selectedGroups.length > 0 && {
+                    groupIds: selectedGroups.map(g => g.id)
+                }),
             })
 
             navigate('/dashboard/user/my-posts', {
-                state: { message: 'Post submitted for approval!' }
+                state: { message: isAdmin ? 'Post published successfully!' : 'Post submitted for approval!' }
             })
             setShowPublishModal(false)
         } catch (err) {
@@ -295,8 +306,8 @@ export function CreatePost() {
             <Modal
                 isOpen={showPublishModal}
                 onClose={() => setShowPublishModal(false)}
-                title="Submit Post for Review"
-                size="md"
+                title={isAdmin ? "Publish Post" : "Submit Post for Review"}
+                size={isAdmin ? "2xl" : "md"}
                 footer={
                     <div className="flex w-full gap-3">
                         <Button
@@ -310,28 +321,59 @@ export function CreatePost() {
                             variant="primary"
                             onClick={confirmPublish}
                             loading={loading}
+                            disabled={isAdmin && selectedGroups.length === 0}
                             className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                         >
-                            Submit for Review
+                            {isAdmin ? 'Publish Now' : 'Submit for Review'}
                         </Button>
                     </div>
                 }
             >
                 <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                        <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                            <p className="text-amber-800 font-medium">Post will be reviewed</p>
-                            <p className="text-amber-700 text-sm mt-1">
-                                Your post will be submitted for moderator approval. Once approved, the admin will assign it to the appropriate groups.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="text-center text-gray-600">
-                        <p>Ready to submit <strong>"{title}"</strong>?</p>
-                    </div>
+                    {isAdmin ? (
+                        <>
+                            {/* Admin: Direct publishing with group selection */}
+                            <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <p className="text-green-800 font-medium">Direct Publishing</p>
+                                    <p className="text-green-700 text-sm mt-1">
+                                        As an admin, your post will be published immediately to the selected groups.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-gray-600 mb-2">
+                                <p>Publishing: <strong>"{title}"</strong></p>
+                            </div>
+
+                            {/* Group Selector */}
+                            <GroupSelector
+                                selectedGroups={selectedGroups}
+                                onChange={setSelectedGroups}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {/* Regular user: Submit for review */}
+                            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <p className="text-amber-800 font-medium">Post will be reviewed</p>
+                                    <p className="text-amber-700 text-sm mt-1">
+                                        Your post will be submitted for moderator approval. Once approved, the admin will assign it to the appropriate groups.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-center text-gray-600">
+                                <p>Ready to submit <strong>"{title}"</strong>?</p>
+                            </div>
+                        </>
+                    )}
                 </div>
             </Modal>
         </div>

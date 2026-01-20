@@ -153,14 +153,15 @@ export function AllUsers() {
     // Local state
     const [expandedId, setExpandedId] = useState<string | null>(null)
 
-    // Groups modal state
+    // Groups modal state - track both original and selected groups
     const [groupsModal, setGroupsModal] = useState<{
         isOpen: boolean
         userId: string | null
         userName: string
+        originalGroups: { id: string; name: string }[]
         selectedGroups: { id: string; name: string }[]
         saving: boolean
-    }>({ isOpen: false, userId: null, userName: '', selectedGroups: [], saving: false })
+    }>({ isOpen: false, userId: null, userName: '', originalGroups: [], selectedGroups: [], saving: false })
 
     // Use the new hooks
     const table = useAdminTable<UserItem>({
@@ -218,6 +219,7 @@ export function AllUsers() {
             isOpen: true,
             userId: user.id,
             userName: user.name,
+            originalGroups: [],
             selectedGroups: [],
             saving: false
         })
@@ -225,9 +227,11 @@ export function AllUsers() {
         try {
             // Fetch groups this user already belongs to
             const currentGroups = await adminService.getUserGroups(user.id)
+            const groupsData = currentGroups.map(g => ({ id: g.id, name: g.name }))
             setGroupsModal(prev => ({
                 ...prev,
-                selectedGroups: currentGroups.map(g => ({ id: g.id, name: g.name }))
+                originalGroups: groupsData,
+                selectedGroups: groupsData
             }))
         } catch (err) {
             console.error('Failed to fetch user groups:', err)
@@ -235,7 +239,7 @@ export function AllUsers() {
     }
 
     const closeGroupsModal = () => {
-        setGroupsModal({ isOpen: false, userId: null, userName: '', selectedGroups: [], saving: false })
+        setGroupsModal({ isOpen: false, userId: null, userName: '', originalGroups: [], selectedGroups: [], saving: false })
     }
 
     const handleGroupsChange = (groups: { id: string; name: string }[]) => {
@@ -243,15 +247,38 @@ export function AllUsers() {
     }
 
     const saveGroupsSelection = async () => {
-        if (!groupsModal.userId || groupsModal.selectedGroups.length === 0) return
+        if (!groupsModal.userId) return
+
+        const originalIds = new Set(groupsModal.originalGroups.map(g => g.id))
+        const selectedIds = new Set(groupsModal.selectedGroups.map(g => g.id))
+
+        // Groups to add: in selected but not in original
+        const groupsToAdd = groupsModal.selectedGroups.filter(g => !originalIds.has(g.id)).map(g => g.id)
+        // Groups to remove: in original but not in selected
+        const groupsToRemove = groupsModal.originalGroups.filter(g => !selectedIds.has(g.id)).map(g => g.id)
+
+        // Nothing changed
+        if (groupsToAdd.length === 0 && groupsToRemove.length === 0) {
+            closeGroupsModal()
+            return
+        }
 
         setGroupsModal(prev => ({ ...prev, saving: true }))
         try {
-            await adminService.addUserToGroups(groupsModal.userId, groupsModal.selectedGroups.map(g => g.id))
+            // Add to new groups
+            if (groupsToAdd.length > 0) {
+                await adminService.addUserToGroups(groupsModal.userId, groupsToAdd)
+            }
+            // Remove from deselected groups
+            if (groupsToRemove.length > 0) {
+                await Promise.all(groupsToRemove.map(groupId =>
+                    adminService.removeGroupMember(groupId, groupsModal.userId!)
+                ))
+            }
             closeGroupsModal()
         } catch (err) {
-            console.error('Failed to add user to groups:', err)
-            alert('Failed to add user to groups')
+            console.error('Failed to update user groups:', err)
+            alert('Failed to update user groups')
         } finally {
             setGroupsModal(prev => ({ ...prev, saving: false }))
         }
@@ -483,7 +510,7 @@ export function AllUsers() {
             <Modal
                 isOpen={groupsModal.isOpen}
                 onClose={closeGroupsModal}
-                title={`Add ${groupsModal.userName} to Groups`}
+                title={`Manage Groups for ${groupsModal.userName}`}
                 size="2xl"
             >
                 <div className="space-y-4">
@@ -500,10 +527,9 @@ export function AllUsers() {
                             variant="success"
                             onClick={saveGroupsSelection}
                             loading={groupsModal.saving}
-                            disabled={groupsModal.selectedGroups.length === 0}
                             className="flex-1"
                         >
-                            Add to {groupsModal.selectedGroups.length} Group{groupsModal.selectedGroups.length !== 1 ? 's' : ''}
+                            Save Changes
                         </Button>
                     </div>
                 </div>

@@ -158,3 +158,58 @@ export const uploadProfilePicture = asyncHandler(async (req: Request, res: Respo
     })
 })
 
+// GET /api/users/me/stats - Get current user's stats (posts, likes received, comments)
+export const getMyStats = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.id
+
+    if (!userId) {
+        throw createError('User not found', 401)
+    }
+
+    // Import models needed for stats
+    const { Post, Like, Comment, UserGroup } = await import('../models/index.js')
+
+    // Get total posts count
+    const totalPosts = await Post.count({ where: { authorId: userId } })
+
+    // Get all user's post IDs
+    const userPosts = await Post.findAll({
+        where: { authorId: userId },
+        attributes: ['id'],
+    })
+    const postIds = userPosts.map(p => p.id)
+
+    // Calculate total likes received on user's posts
+    let totalLikesReceived = 0
+    let totalCommentsReceived = 0
+
+    if (postIds.length > 0) {
+        totalLikesReceived = await Like.count({
+            where: {
+                likeableType: 'post',
+                likeableId: postIds,
+            },
+        })
+
+        totalCommentsReceived = await Comment.count({
+            where: {
+                commentableType: 'post',
+                commentableId: postIds,
+            },
+        })
+    }
+
+    // Get user's groups count
+    const groupsCount = await UserGroup.count({ where: { userId } })
+
+    res.json({
+        success: true,
+        stats: {
+            totalPosts,
+            totalLikesReceived,
+            totalCommentsReceived,
+            groupsCount,
+        },
+    })
+})
+

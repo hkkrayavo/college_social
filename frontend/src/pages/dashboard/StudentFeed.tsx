@@ -3,17 +3,6 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { apiClient } from '../../services/api'
 
-interface Post {
-    id: string
-    title: string | null
-    content: string
-    author: { id: string; name: string }
-    groups: { id: string; name: string }[]
-    likesCount: number
-    commentsCount: number
-    createdAt: string
-}
-
 interface Event {
     id: string
     name: string
@@ -50,27 +39,26 @@ export function StudentFeed() {
                 // Events endpoint might not exist
             }
 
-            // Load user stats (my posts)
+            // Load user stats from dedicated stats endpoint
             try {
-                const myPostsRes = await apiClient.get<{ success: boolean; data: Post[]; pagination: { total: number } }>('/posts?mine=true&limit=1')
-                const groupsRes = await apiClient.get<{ success: boolean; data: { id: string }[] }>('/groups')
+                const statsRes = await apiClient.get<{
+                    success: boolean;
+                    stats: {
+                        totalPosts: number;
+                        totalLikesReceived: number;
+                        totalCommentsReceived: number;
+                        groupsCount: number
+                    }
+                }>('/users/me/stats')
 
-                // Calculate total likes and comments from my posts
-                let totalLikes = 0
-                let totalComments = 0
-                if (myPostsRes.data) {
-                    myPostsRes.data.forEach(p => {
-                        totalLikes += p.likesCount || 0
-                        totalComments += p.commentsCount || 0
+                if (statsRes.stats) {
+                    setStats({
+                        totalPosts: statsRes.stats.totalPosts || 0,
+                        totalLikes: statsRes.stats.totalLikesReceived || 0,
+                        totalComments: statsRes.stats.totalCommentsReceived || 0,
+                        groupsCount: statsRes.stats.groupsCount || 0,
                     })
                 }
-
-                setStats({
-                    totalPosts: myPostsRes.pagination?.total || 0,
-                    totalLikes,
-                    totalComments,
-                    groupsCount: groupsRes.data?.length || 0,
-                })
             } catch {
                 // Stats might fail
             }
@@ -104,7 +92,7 @@ export function StudentFeed() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-navy/10 rounded-lg flex items-center justify-center">
@@ -147,19 +135,7 @@ export function StudentFeed() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gold/20 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-navy">{loading ? '—' : stats.groupsCount}</p>
-                            <p className="text-xs text-gray-500">My Groups</p>
-                        </div>
-                    </div>
-                </div>
+
             </div>
 
             {/* Quick Actions */}

@@ -33,9 +33,10 @@ export function PendingUsers() {
     const [rejectModal, setRejectModal] = useState<{
         isOpen: boolean
         userId: string | null
+        userName: string
+        message: string
         isBulk: boolean
-        confirmText: string
-    }>({ isOpen: false, userId: null, isBulk: false, confirmText: '' })
+    }>({ isOpen: false, userId: null, userName: '', message: '', isBulk: false })
 
     // Approve modal state
     const [approveModal, setApproveModal] = useState<{
@@ -149,24 +150,63 @@ export function PendingUsers() {
     }
 
     // Open reject confirmation modal for single user
-    const openRejectModal = (userId: string, e?: React.MouseEvent) => {
+    const openRejectModal = async (user: { id: string; name: string }, e?: React.MouseEvent) => {
         e?.stopPropagation()
-        setRejectModal({ isOpen: true, userId, isBulk: false, confirmText: '' })
+
+        // Fetch rejection template from database and replace variables
+        let message = 'Your account registration has been rejected.'
+        try {
+            const template = await adminService.getSmsTemplate('account_rejected')
+            if (template) {
+                message = template.content
+                    .replace(/{user_name}/g, user.name)
+                    .replace(/{app_name}/g, APP_NAME)
+            }
+        } catch {
+            // Use default message if fetch fails
+        }
+
+        setRejectModal({
+            isOpen: true,
+            userId: user.id,
+            userName: user.name,
+            message,
+            isBulk: false
+        })
     }
 
     // Open reject confirmation modal for bulk rejection
-    const openBulkRejectModal = () => {
-        setRejectModal({ isOpen: true, userId: null, isBulk: true, confirmText: '' })
+    const openBulkRejectModal = async () => {
+        // Fetch rejection template from database (use generic message for bulk)
+        let message = 'Your account registration has been rejected.'
+        try {
+            const template = await adminService.getSmsTemplate('account_rejected')
+            if (template) {
+                message = template.content
+                    .replace(/{user_name}/g, 'User')  // Placeholder for bulk
+                    .replace(/{app_name}/g, APP_NAME)
+            }
+        } catch {
+            // Use default message if fetch fails
+        }
+
+        setRejectModal({
+            isOpen: true,
+            userId: null,
+            userName: '',
+            message,
+            isBulk: true
+        })
     }
 
     // Close reject modal
     const closeRejectModal = () => {
-        setRejectModal({ isOpen: false, userId: null, isBulk: false, confirmText: '' })
+        setRejectModal({ isOpen: false, userId: null, userName: '', message: '', isBulk: false })
     }
 
     // Confirm rejection (single or bulk)
     const confirmReject = async () => {
-        if (rejectModal.confirmText.toLowerCase() !== 'reject') return
+        if (!rejectModal.message.trim()) return
 
         try {
             setActionLoading('rejecting')
@@ -174,7 +214,7 @@ export function PendingUsers() {
                 // Bulk rejection
                 for (const id of selectedIds) {
                     try {
-                        await adminService.rejectUser(id)
+                        await adminService.rejectUser(id, rejectModal.message)
                     } catch (err) {
                         console.error('Failed to reject user:', id)
                     }
@@ -182,7 +222,7 @@ export function PendingUsers() {
                 setSelectedIds(new Set())
             } else if (rejectModal.userId) {
                 // Single rejection
-                await adminService.rejectUser(rejectModal.userId)
+                await adminService.rejectUser(rejectModal.userId, rejectModal.message)
                 setUsers(users.filter(u => u.id !== rejectModal.userId))
                 setTotalItems(prev => prev - 1)
             }
@@ -465,7 +505,7 @@ export function PendingUsers() {
                                                         {actionLoading === user.id ? '...' : 'Approve'}
                                                     </Button>
                                                     <Button
-                                                        onClick={(e) => openRejectModal(user.id, e)}
+                                                        onClick={(e) => openRejectModal({ id: user.id, name: user.name }, e)}
                                                         disabled={actionLoading === user.id}
                                                         variant="danger"
                                                         size="sm"
@@ -513,7 +553,7 @@ export function PendingUsers() {
                                                                 </Button>
                                                                 <Button
                                                                     variant="danger"
-                                                                    onClick={(e) => openRejectModal(user.id, e)}
+                                                                    onClick={(e) => openRejectModal({ id: user.id, name: user.name }, e)}
                                                                     disabled={actionLoading === user.id}
                                                                     className="w-full justify-center border-red-300"
                                                                 >
@@ -548,33 +588,35 @@ export function PendingUsers() {
                 onClose={closeRejectModal}
                 title={rejectModal.isBulk
                     ? `Reject ${selectedIds.size} User${selectedIds.size > 1 ? 's' : ''}?`
-                    : 'Reject User?'
+                    : `Reject ${rejectModal.userName}?`
                 }
-                size="sm"
+                size="md"
             >
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </div>
                     <p className="text-gray-600">
-                        This action cannot be undone. The user(s) will not be able to log in.
+                        This message will be sent to the user via SMS.
                     </p>
                 </div>
 
                 <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Type <span className="font-bold text-red-600">reject</span> to confirm
+                        Rejection Message (SMS)
                     </label>
-                    <input
-                        type="text"
-                        value={rejectModal.confirmText}
-                        onChange={(e) => setRejectModal(prev => ({ ...prev, confirmText: e.target.value }))}
-                        placeholder="Type 'reject' here"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                        autoFocus
+                    <textarea
+                        value={rejectModal.message}
+                        onChange={(e) => setRejectModal(prev => ({ ...prev, message: e.target.value }))}
+                        placeholder="Enter rejection message..."
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                        {rejectModal.message.length} characters
+                    </p>
                 </div>
 
                 <div className="flex gap-3">
@@ -589,10 +631,10 @@ export function PendingUsers() {
                         variant="danger"
                         onClick={confirmReject}
                         loading={actionLoading === 'rejecting'}
-                        disabled={rejectModal.confirmText.toLowerCase() !== 'reject'}
+                        disabled={!rejectModal.message.trim()}
                         className="flex-1"
                     >
-                        Reject User{rejectModal.isBulk && selectedIds.size > 1 ? 's' : ''}
+                        Reject & Send SMS
                     </Button>
                 </div>
             </Modal>
