@@ -1,7 +1,6 @@
 /**
  * Custom Video Tool for Editor.js
- * Only allows adding videos via URL (YouTube, Vimeo, direct links)
- * Video file uploads are disabled for security/bandwidth reasons
+ * Supports video upload and URL embedding (YouTube, Vimeo, direct links)
  */
 
 interface VideoToolData {
@@ -15,6 +14,9 @@ interface VideoToolData {
 
 interface VideoToolConfig {
     captionPlaceholder?: string
+    uploader?: {
+        uploadByFile?: (file: File) => Promise<{ success: boolean; file: { url: string } }>
+    }
 }
 
 class CustomVideoTool {
@@ -69,26 +71,112 @@ class CustomVideoTool {
         const container = document.createElement('div')
         container.classList.add('custom-image-tool__container') // Reusing image tool styles
 
-        // URL input only (no file upload for videos)
-        const urlPanel = document.createElement('div')
-        urlPanel.classList.add('custom-image-tool__panel', 'custom-image-tool__panel--active')
-        urlPanel.innerHTML = `
-            <div class="custom-video-tool__url-header">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        // Tabs
+        const tabContainer = document.createElement('div')
+        tabContainer.classList.add('custom-image-tool__tabs')
+        tabContainer.innerHTML = `
+            <button type="button" class="custom-image-tool__tab custom-image-tool__tab--active" data-tab="upload">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Upload Video
+            </button>
+            <button type="button" class="custom-image-tool__tab" data-tab="url">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+                Video URL
+            </button>
+        `
+        container.appendChild(tabContainer)
+
+        // Upload panel
+        const uploadPanel = document.createElement('div')
+        uploadPanel.classList.add('custom-image-tool__panel', 'custom-image-tool__panel--active')
+        uploadPanel.dataset.panel = 'upload'
+        uploadPanel.innerHTML = `
+            <div class="custom-image-tool__upload-area">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
                     <polygon points="10 8 16 12 10 16 10 8"></polygon>
                 </svg>
-                <span>Add video from URL</span>
+                <p>Click to upload or drag and drop</p>
+                <span>MP4, WebM, MOV up to 50MB</span>
+                <input type="file" accept="video/*" class="custom-image-tool__file-input" />
             </div>
-            <p class="custom-video-tool__hint">Supports YouTube, Vimeo, and direct video links</p>
+        `
+        container.appendChild(uploadPanel)
+
+        // URL panel
+        const urlPanel = document.createElement('div')
+        urlPanel.classList.add('custom-image-tool__panel')
+        urlPanel.dataset.panel = 'url'
+        urlPanel.innerHTML = `
             <div class="custom-image-tool__url-input">
                 <input type="text" placeholder="Paste video URL (YouTube, Vimeo, or direct link)..." class="custom-image-tool__url-field" />
                 <button type="button" class="custom-image-tool__url-submit">Add Video</button>
             </div>
         `
-
         container.appendChild(urlPanel)
+
         this.wrapper.appendChild(container)
+
+        // Bind tab switching
+        const tabs = this.wrapper.querySelectorAll('.custom-image-tool__tab')
+        const panels = this.wrapper.querySelectorAll('.custom-image-tool__panel')
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = (tab as HTMLElement).dataset.tab
+
+                tabs.forEach(t => t.classList.remove('custom-image-tool__tab--active'))
+                tab.classList.add('custom-image-tool__tab--active')
+
+                panels.forEach(p => {
+                    const panel = p as HTMLElement
+                    if (panel.dataset.panel === targetTab) {
+                        panel.classList.add('custom-image-tool__panel--active')
+                    } else {
+                        panel.classList.remove('custom-image-tool__panel--active')
+                    }
+                })
+            })
+        })
+
+        // Bind file upload
+        const fileInput = this.wrapper.querySelector('.custom-image-tool__file-input') as HTMLInputElement
+        const uploadArea = this.wrapper.querySelector('.custom-image-tool__upload-area') as HTMLElement
+
+        if (fileInput && uploadArea) {
+            uploadArea.onclick = () => fileInput.click()
+
+            fileInput.onchange = () => {
+                const file = fileInput.files?.[0]
+                if (file) {
+                    this._uploadFile(file)
+                }
+            }
+
+            // Drag and drop
+            uploadArea.ondragover = (e) => {
+                e.preventDefault()
+                uploadArea.classList.add('custom-image-tool__upload-area--dragover')
+            }
+            uploadArea.ondragleave = () => {
+                uploadArea.classList.remove('custom-image-tool__upload-area--dragover')
+            }
+            uploadArea.ondrop = (e) => {
+                e.preventDefault()
+                uploadArea.classList.remove('custom-image-tool__upload-area--dragover')
+                const file = e.dataTransfer?.files[0]
+                if (file && file.type.startsWith('video/')) {
+                    this._uploadFile(file)
+                }
+            }
+        }
 
         // Bind URL submit
         const urlSubmitBtn = this.wrapper.querySelector('.custom-image-tool__url-submit') as HTMLButtonElement
@@ -116,7 +204,45 @@ class CustomVideoTool {
         }
     }
 
+    private async _uploadFile(file: File): Promise<void> {
+        if (!this.config.uploader?.uploadByFile) {
+            console.error('No uploader configured for video tool')
+            return
+        }
 
+        const uploadArea = this.wrapper?.querySelector('.custom-image-tool__upload-area') as HTMLElement
+        if (uploadArea) {
+            uploadArea.innerHTML = `
+                <div class="custom-image-tool__uploading">
+                    <div class="custom-image-tool__spinner"></div>
+                    <p>Uploading video...</p>
+                </div>
+            `
+        }
+
+        try {
+            const response = await this.config.uploader.uploadByFile(file)
+            if (response.success && response.file?.url) {
+                this.data.url = response.file.url
+                this._createVideo(response.file.url)
+            } else {
+                this._showError('Upload failed')
+            }
+        } catch (error) {
+            console.error('Video upload error:', error)
+            this._showError('Upload failed')
+        }
+    }
+
+    private _showError(message: string): void {
+        if (!this.wrapper) return
+        this.wrapper.innerHTML = `
+            <div class="custom-image-tool__error">
+                <span>${message}</span>
+            </div>
+        `
+        this._createUploadUI()
+    }
 
     private _createVideo(url: string): void {
         if (!this.wrapper) return

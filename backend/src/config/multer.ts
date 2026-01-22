@@ -51,13 +51,13 @@ export const profilePictureUpload = multer({
 /**
  * Upload configuration for post media
  * - Multiple files (up to 10)
- * - Images only (max 5MB) - Videos must be embedded via URL
+ * - Images max 5MB, videos max 50MB
  */
 export const postMediaUpload = multer({
     storage,
-    fileFilter: imageFilter,  // Images only - videos disabled for posts
+    fileFilter: mediaFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB max for images
+        fileSize: MAX_VIDEO_SIZE, // 50MB (max for videos)
         files: 10,
     },
 })

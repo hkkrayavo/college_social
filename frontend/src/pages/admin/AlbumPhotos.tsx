@@ -137,7 +137,7 @@ export function AlbumPhotos() {
                                     {' • '}
                                 </>
                             )}
-                            {album.media.length} photo{album.media.length !== 1 ? 's' : ''}
+                            {album.media.length} item{album.media.length !== 1 ? 's' : ''}
                         </p>
                     </div>
                 </div>
@@ -160,7 +160,7 @@ export function AlbumPhotos() {
                             </svg>
                         }
                     >
-                        {uploading ? `Uploading ${uploadProgress}%` : 'Add Photos'}
+                        {uploading ? `Uploading ${uploadProgress}%` : 'Add Media'}
                     </Button>
                     <input
                         ref={fileInputRef}
@@ -193,15 +193,20 @@ export function AlbumPhotos() {
             {/* Media Grid */}
             {album.media.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-                    <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-gray-500 mb-4">No photos in this album yet</p>
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        <svg className="w-14 h-14 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <p className="text-gray-500 mb-4">No photos or videos in this album yet</p>
                     <Button
                         onClick={() => fileInputRef.current?.click()}
                         variant="primary"
                     >
-                        Upload Photos
+                        Upload Media
                     </Button>
                 </div>
             ) : (
@@ -212,14 +217,24 @@ export function AlbumPhotos() {
                             className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden"
                         >
                             {media.mediaType === 'video' ? (
-                                <video
-                                    src={getMediaUrl(media.mediaUrl)}
-                                    className="w-full h-full object-cover"
-                                />
+                                <div className="relative w-full h-full">
+                                    <video
+                                        src={getMediaUrl(media.mediaUrl)}
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {/* Play button overlay for videos */}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
+                                        <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:opacity-0 transition-opacity">
+                                            <svg className="w-6 h-6 text-navy ml-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
                             ) : (
                                 <img
                                     src={getMediaUrl(media.mediaUrl)}
-                                    alt={media.caption || 'Album photo'}
+                                    alt={media.caption || 'Album media'}
                                     className="w-full h-full object-cover"
                                     loading="lazy"
                                 />
@@ -268,8 +283,8 @@ export function AlbumPhotos() {
             {deleteConfirm && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl max-w-md w-full p-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Delete Photo?</h3>
-                        <p className="text-gray-600 mb-6">Are you sure you want to delete this photo? This cannot be undone.</p>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Delete Media?</h3>
+                        <p className="text-gray-600 mb-6">Are you sure you want to delete this item? This cannot be undone.</p>
                         <div className="flex gap-3">
                             <Button
                                 onClick={() => setDeleteConfirm(null)}

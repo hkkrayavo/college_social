@@ -343,14 +343,30 @@ export function EventFeed() {
                                         <button
                                             key={m.id}
                                             onClick={() => setCurrentPhotoIndex(idx)}
-                                            className={`flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${idx === currentPhotoIndex ? 'border-gold' : 'border-transparent opacity-60 hover:opacity-100'
+                                            className={`relative flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-colors ${idx === currentPhotoIndex ? 'border-gold' : 'border-transparent opacity-60 hover:opacity-100'
                                                 }`}
                                         >
-                                            <img
-                                                src={getMediaUrl(m.url)}
-                                                alt=""
-                                                className="w-full h-full object-cover"
-                                            />
+                                            {m.mediaType === 'video' ? (
+                                                <>
+                                                    <video
+                                                        src={getMediaUrl(m.url)}
+                                                        className="w-full h-full object-cover"
+                                                        muted
+                                                    />
+                                                    {/* Video indicator */}
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                                                        </svg>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <img
+                                                    src={getMediaUrl(m.url)}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            )}
                                         </button>
                                     ))}
                                 </div>
@@ -497,6 +513,9 @@ function EventCard({ item, onAlbumClick, formatRelativeTime, formatDate }: Event
 
 // Album Preview inside Event Card
 function AlbumPreview({ album, onAlbumClick }: { album: AlbumWithMedia; onAlbumClick: (id: string) => void }) {
+    const firstMedia = album.photos[0]
+    const isVideo = firstMedia && /\.(mp4|webm|mov|avi|mkv)$/i.test(firstMedia.url)
+
     return (
         <button
             onClick={() => onAlbumClick(album.id)}
@@ -505,11 +524,28 @@ function AlbumPreview({ album, onAlbumClick }: { album: AlbumWithMedia; onAlbumC
         >
             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-navy transition-all duration-300 shadow-sm">
                 {album.photos.length > 0 ? (
-                    <img
-                        src={getMediaUrl(album.photos[0].url)}
-                        alt={album.name}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
-                    />
+                    isVideo ? (
+                        <>
+                            <video
+                                src={getMediaUrl(firstMedia.url)}
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
+                                muted
+                                preload="metadata"
+                            />
+                            {/* Video play icon */}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                                </svg>
+                            </div>
+                        </>
+                    ) : (
+                        <img
+                            src={getMediaUrl(firstMedia.url)}
+                            alt={album.name}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
+                        />
+                    )
                 ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
                         <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -518,7 +554,7 @@ function AlbumPreview({ album, onAlbumClick }: { album: AlbumWithMedia; onAlbumC
                     </div>
                 )}
 
-                {/* Photo Count Overlay (Small) */}
+                {/* Media Count Overlay (Small) */}
                 {album.photoCount > 1 && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1 pt-4 flex justify-end">
                         <span className="text-[10px] font-bold text-white flex items-center gap-0.5">
